@@ -1,0 +1,6 @@
+services:
+  ingestion:
+    build:
+      context: ./services/ingestion
+    ports:
+      - "8001:8001"
