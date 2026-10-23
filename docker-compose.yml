@@ -1,6 +1,52 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: triage
+      POSTGRES_USER: triage_admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-triage_admin_dev}
+      INGESTION_DB_PASSWORD: ${INGESTION_DB_PASSWORD:-ingestion_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-ingestion.sh:/docker-entrypoint-initdb.d/10-ingestion.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triage_admin -d triage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-triage}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-triage_dev}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   ingestion:
     build:
       context: ./services/ingestion
+    environment:
+      DATABASE_URL: postgresql+psycopg://ingestion:${INGESTION_DB_PASSWORD:-ingestion_dev}@postgres:5432/triage
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-triage}:${RABBITMQ_PASSWORD:-triage_dev}@rabbitmq:5672/
+      MAX_REPORT_SIZE_BYTES: ${MAX_REPORT_SIZE_BYTES:-10485760}
+      OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     ports:
       - "8001:8001"
+
+volumes:
+  postgres_data:

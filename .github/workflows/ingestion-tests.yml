@@ -1,0 +1,106 @@
+name: Ingestion tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingestion-tests:
+    name: Ingestion test suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/ingestion/requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r services/ingestion/requirements-dev.txt
+
+      - name: Run Ingestion tests
+        id: pytest
+        run: |
+          mkdir -p reports
+          python -m pytest \
+            -c services/ingestion/pytest.ini \
+            services/ingestion/tests \
+            --junitxml=reports/ingestion-junit.xml
+
+      - name: Add test case results to run summary
+        if: always()
+        env:
+          TEST_REPORT: reports/ingestion-junit.xml
+          TEST_STEP_OUTCOME: ${{ steps.pytest.outcome }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          report_path = Path(os.environ["TEST_REPORT"])
+          outcome = os.environ.get("TEST_STEP_OUTCOME", "unknown")
+
+          with summary_path.open("a", encoding="utf-8") as summary:
+              summary.write("## Ingestion test results\n\n")
+              if not report_path.is_file():
+                  summary.write(
+                      f"Pytest outcome: **{outcome}**. "
+                      "JUnit report was not generated; check the test step logs.\n"
+                  )
+                  raise SystemExit(0)
+
+              root = ElementTree.parse(report_path).getroot()
+              cases = root.findall(".//testcase")
+              passed = failed = errors = skipped = 0
+              summary.write("| Result | Test case | Details |\n")
+              summary.write("|---|---|---|\n")
+
+              for case in cases:
+                  failure = case.find("failure")
+                  error = case.find("error")
+                  skip = case.find("skipped")
+                  if failure is not None:
+                      result, detail = "FAIL", failure.get("message", failure.text or "")
+                      failed += 1
+                  elif error is not None:
+                      result, detail = "ERROR", error.get("message", error.text or "")
+                      errors += 1
+                  elif skip is not None:
+                      result, detail = "SKIPPED", skip.get("message", skip.text or "")
+                      skipped += 1
+                  else:
+                      result, detail = "PASS", ""
+                      passed += 1
+
+                  name = ".".join(
+                      part for part in (case.get("classname"), case.get("name")) if part
+                  )
+                  safe_name = name.replace("|", "\\|").replace("\n", " ")
+                  safe_detail = " ".join(detail.split()).replace("|", "\\|")
+                  summary.write(f"| {result} | `{safe_name}` | {safe_detail} |\n")
+
+              summary.write(
+                  f"\n**Passed:** {passed} · **Failed:** {failed} · "
+                  f"**Errors:** {errors} · **Skipped:** {skipped} · "
+                  f"**Pytest step:** {outcome}\n"
+              )
+          PY
+
+      - name: Upload JUnit test report
+        if: always() && hashFiles('reports/ingestion-junit.xml') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-junit-report
+          path: reports/ingestion-junit.xml
+          if-no-files-found: error
+          retention-days: 14

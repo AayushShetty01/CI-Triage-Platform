@@ -1,20 +1,226 @@
+import asyncio
+import json
+
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, func, select
 
-from app.main import app
+from app.database import metadata, outbox, runs
+from app.main import create_app
+from app.relay import publish_pending_batch
 
-client = TestClient(app)
+JUNIT_XML = b"""<?xml version="1.0"?>
+<testsuite name="sample">
+  <testcase classname="example.Sample" name="passes" />
+</testsuite>
+"""
 
 
-def test_health_returns_ok() -> None:
+@pytest.fixture
+def ingestion_client(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'ingestion-test.db'}"
+    engine = create_engine(
+        database_url,
+        connect_args={"check_same_thread": False},
+        execution_options={"schema_translate_map": {"ingestion": None}},
+    )
+    metadata.create_all(engine)
+    app = create_app(
+        database_url=database_url,
+        enable_relay=False,
+        max_report_size_bytes=1024,
+    )
+    with TestClient(app) as client:
+        yield client, app.state.engine
+    engine.dispose()
+    app.state.engine.dispose()
+
+
+def _raw_upload(client: TestClient, body: bytes = JUNIT_XML):
+    return client.post(
+        "/runs",
+        content=body,
+        headers={
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "0123456789abcdef",
+            "X-Branch": "main",
+        },
+    )
+
+
+def test_health_and_metrics_endpoints(ingestion_client) -> None:
+    client, _ = ingestion_client
+
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+    metrics_response = client.get("/metrics")
+    assert metrics_response.status_code == 200
+    assert "ingestion_health_checks_total" in metrics_response.text
+    assert "ingest_requests_total" in metrics_response.text
+    assert "outbox_pending" in metrics_response.text
 
 
-def test_metrics_endpoint_exposes_health_check_counter() -> None:
-    client.get("/health")
-    response = client.get("/metrics")
+def test_raw_report_is_stored_with_outbox_event_in_same_submission(ingestion_client) -> None:
+    client, engine = ingestion_client
+
+    response = _raw_upload(client)
+
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+    assert len(run_id) == 64
+    with engine.connect() as connection:
+        run = connection.execute(
+            select(runs).where(runs.c.run_id == run_id)
+        ).mappings().one()
+        event = connection.execute(select(outbox)).mappings().one()
+    assert run["raw_xml"] == JUNIT_XML
+    assert run["commit_sha"] == "0123456789abcdef"
+    assert run["branch"] == "main"
+    assert run["status"] == "received"
+    assert event["event_type"] == "RunReceived"
+    assert event["payload"]["run_id"] == run_id
+    assert event["payload"]["payload"]["commit_sha"] == "0123456789abcdef"
+    assert event["published_at"] is None
+
+
+def test_duplicate_submission_returns_same_run_without_duplicate_rows(ingestion_client) -> None:
+    client, engine = ingestion_client
+
+    first = _raw_upload(client)
+    second = _raw_upload(client)
+
+    assert first.status_code == second.status_code == 202
+    assert first.json()["run_id"] == second.json()["run_id"]
+    with engine.connect() as connection:
+        assert connection.execute(select(func.count()).select_from(runs)).scalar_one() == 1
+        assert connection.execute(select(func.count()).select_from(outbox)).scalar_one() == 1
+
+
+def test_multipart_report_submission(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    response = client.post(
+        "/runs",
+        data={"commit_sha": "abc123", "branch": "feature/test"},
+        files={"file": ("junit.xml", JUNIT_XML, "application/xml")},
+    )
+
+    assert response.status_code == 202
+    assert len(response.json()["run_id"]) == 64
+
+
+def test_missing_metadata_is_rejected(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    response = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={"Content-Type": "application/xml", "X-Commit-Sha": "abc123"},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "branch is required and must be at most 255 characters"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b"<testsuite name='unfinished'>",
+        b"<not-junit />",
+        b"<testsuite><testcase name='missing suite name' /></testsuite>",
+        b"<testsuite name='suite'><testcase /></testsuite>",
+        b'<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+        b'<testsuite name="suite"><testcase name="&xxe;" /></testsuite>',
+    ],
+)
+def test_invalid_or_unsafe_junit_xml_is_rejected(ingestion_client, body: bytes) -> None:
+    client, _ = ingestion_client
+
+    response = _raw_upload(client, body)
+
+    assert response.status_code == 400
+
+
+def test_report_size_limit_is_enforced(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    response = _raw_upload(client, b"x" * 1025)
+
+    assert response.status_code == 413
+
+
+def test_internal_raw_endpoint_returns_stored_xml(ingestion_client) -> None:
+    client, _ = ingestion_client
+    run_id = _raw_upload(client).json()["run_id"]
+
+    response = client.get(f"/internal/runs/{run_id}/raw")
 
     assert response.status_code == 200
-    assert "ingestion_health_checks_total" in response.text
+    assert response.content == JUNIT_XML
+    assert response.headers["content-type"] == "application/xml"
+
+
+def test_internal_raw_endpoint_returns_404_for_unknown_run(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    response = client.get(f"/internal/runs/{'0' * 64}/raw")
+
+    assert response.status_code == 404
+
+
+class ConfirmingExchange:
+    def __init__(self) -> None:
+        self.messages: list[tuple[str, dict[str, object]]] = []
+
+    async def publish(self, message, routing_key: str, mandatory: bool) -> None:
+        assert mandatory is True
+        assert message.content_type == "application/json"
+        assert routing_key == "run.received"
+        self.messages.append((routing_key, json.loads(message.body)))
+
+
+class FailingExchange:
+    async def publish(self, message, routing_key: str, mandatory: bool) -> None:
+        assert message.content_type == "application/json"
+        assert routing_key == "run.received"
+        assert mandatory is True
+        raise RuntimeError("broker unavailable")
+
+
+def test_relay_marks_event_published_only_after_confirmation(ingestion_client) -> None:
+    client, engine = ingestion_client
+    client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "0123456789abcdef",
+            "X-Branch": "main",
+        },
+    )
+    exchange = ConfirmingExchange()
+
+    published = asyncio.run(publish_pending_batch(engine, exchange, batch_size=50))
+
+    assert published == 1
+    assert len(exchange.messages) == 1
+    routing_key, message = exchange.messages[0]
+    assert routing_key == "run.received"
+    assert message["event_type"] == "RunReceived"
+    with engine.connect() as connection:
+        stored_event = connection.execute(select(outbox)).mappings().one()
+    assert stored_event["published_at"] is not None
+
+
+def test_relay_failure_leaves_event_pending(ingestion_client) -> None:
+    client, engine = ingestion_client
+    _raw_upload(client)
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        asyncio.run(publish_pending_batch(engine, FailingExchange(), batch_size=50))
+
+    with engine.connect() as connection:
+        stored_event = connection.execute(select(outbox)).mappings().one()
+    assert stored_event["published_at"] is None
