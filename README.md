@@ -44,16 +44,55 @@ first start. Set `INGESTION_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
 development credentials. `MAX_REPORT_SIZE_BYTES`, `OUTBOX_POLL_INTERVAL_SECONDS`,
 and `OUTBOX_BATCH_SIZE` configure upload and relay limits.
 
-To run its tests locally from the repository root:
+To run the fast tests locally from the repository root:
 
 Use Python 3.11, as required by the project:
 
 ```bash
 python -m pip install -r services/ingestion/requirements-dev.txt
-python -m pytest -c services/ingestion/pytest.ini services/ingestion/tests
+mkdir -p artifacts
+python -m pytest \
+  -c services/ingestion/pytest.ini \
+  services/ingestion/tests \
+  --junitxml=artifacts/junit-report.xml
 ```
 
-The same test suite runs automatically in GitHub Actions on pushes and pull
-requests, or manually from the repository's **Actions → Ingestion tests** page.
-Each workflow run includes a per-test-case pass/fail summary; its downloadable
-JUnit XML report is attached as the `ingestion-junit-report` artifact.
+The test run writes `artifacts/ingestion-test.log` with timestamped API
+requests, sanitized payload snippets, response codes, error response details,
+timings, outcomes, and failure tracebacks, plus `artifacts/ingestion-summary.txt`
+with case counts, execution percentages, failed test IDs, and failure messages.
+Headers and query values are not logged, and credential-like values are
+redacted. The JUnit XML records the actual pytest outcomes. These files are
+uploaded as the `ingestion-test-artifacts` artifact by GitHub Actions, including
+when tests fail.
+
+The named pytest cases inventory `/health` and `/metrics`; raw and multipart
+JUnit uploads, accepted XML media types, metadata sources and validation,
+malformed/unsafe XML, size and content-type limits, duplicate/idempotent
+submissions, persisted report retrieval, and outbox/relay success and failure.
+The integration case also verifies persistence and the delivered event against
+the configured PostgreSQL database and RabbitMQ broker. JUnit case names are
+the pytest node IDs; the execution log and text summary also include stable
+`ING-...` identifiers for each test.
+
+The integration test also runs when `INGESTION_TEST_DATABASE_URL` and
+`INGESTION_TEST_RABBITMQ_URL` point to an isolated PostgreSQL database and
+RabbitMQ broker. It applies the migrations, uploads a representative report
+through the API, verifies the stored report and duplicate behavior, and checks
+that the actual broker receives the `RunReceived` event. GitHub Actions starts
+dedicated PostgreSQL and RabbitMQ services for this test. Avoid pointing the
+integration test at a shared or production database.
+
+The workflow runs automatically on pushes and pull requests, or manually from
+the repository's **Actions → Ingestion tests** page. Each workflow run includes
+a per-test-case pass/fail summary. Download the test files from **Actions →
+select the workflow run → Artifacts → ingestion-test-artifacts**.
+
+GitLab CI is also configured in `.gitlab-ci.yml`. It runs the same suite on
+branch and merge-request pipelines using isolated PostgreSQL and RabbitMQ
+service containers. GitLab publishes `artifacts/junit-report.xml` as a test
+report and uploads the log and text summary for one week even when the test job
+fails. This requires a GitLab runner that supports service containers. In
+GitLab, download the files from **Build → Pipelines → select the pipeline →
+ingestion-tests → Browse artifacts**. Test failures remain failures; the normal
+pipeline does not force a target pass/fail ratio or inject test faults.

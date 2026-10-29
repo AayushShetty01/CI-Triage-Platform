@@ -12,6 +12,35 @@ jobs:
   ingestion-tests:
     name: Ingestion test suite
     runs-on: ubuntu-latest
+    env:
+      INGESTION_TEST_DATABASE_URL: postgresql+psycopg://triage_admin:triage_admin_ci@localhost:5432/ingestion_test
+      INGESTION_TEST_RABBITMQ_URL: amqp://triage:triage_ci@localhost:5672/
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ingestion_test
+          POSTGRES_USER: triage_admin
+          POSTGRES_PASSWORD: triage_admin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U triage_admin -d ingestion_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: triage
+          RABBITMQ_DEFAULT_PASS: triage_ci
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -29,16 +58,16 @@ jobs:
       - name: Run Ingestion tests
         id: pytest
         run: |
-          mkdir -p reports
+          mkdir -p artifacts
           python -m pytest \
             -c services/ingestion/pytest.ini \
             services/ingestion/tests \
-            --junitxml=reports/ingestion-junit.xml
+            --junitxml=artifacts/junit-report.xml
 
       - name: Add test case results to run summary
         if: always()
         env:
-          TEST_REPORT: reports/ingestion-junit.xml
+          TEST_REPORT: artifacts/junit-report.xml
           TEST_STEP_OUTCOME: ${{ steps.pytest.outcome }}
         run: |
           python - <<'PY'
@@ -96,11 +125,14 @@ jobs:
               )
           PY
 
-      - name: Upload JUnit test report
-        if: always() && hashFiles('reports/ingestion-junit.xml') != ''
+      - name: Upload ingestion test reports and log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ingestion-junit-report
-          path: reports/ingestion-junit.xml
-          if-no-files-found: error
-          retention-days: 14
+          name: ingestion-test-artifacts
+          path: |
+            artifacts/ingestion-test.log
+            artifacts/junit-report.xml
+            artifacts/ingestion-summary.txt
+          if-no-files-found: warn
+          retention-days: 7
