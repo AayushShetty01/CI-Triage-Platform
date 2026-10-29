@@ -1,0 +1,64 @@
+name: Ingestion failure simulation
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  failure-simulation:
+    name: Controlled ingestion failure simulation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/ingestion/requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r services/ingestion/requirements-dev.txt
+
+      - name: Run controlled failure simulation
+        run: |
+          mkdir -p artifacts
+          python -m pytest \
+            -c services/ingestion/pytest.ini \
+            services/ingestion/failure_simulation/test_ingestion_failures.py
+
+      - name: Add simulation summary to workflow
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          summary_path = Path("artifacts/failure-simulation-summary.txt")
+          if summary_path.is_file():
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+                  summary.write("## Controlled CI failure simulation\n\n")
+                  summary.write(summary_path.read_text(encoding="utf-8"))
+          else:
+              with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as summary:
+                  summary.write(
+                      "Simulation summary was not generated; check the test step logs.\n"
+                  )
+          PY
+
+      - name: Upload failure simulation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-failure-simulation-artifacts
+          path: |
+            artifacts/failure-simulation-junit.xml
+            artifacts/failure-simulation-execution.log
+            artifacts/failure-simulation-summary.txt
+          if-no-files-found: warn
+          retention-days: 7

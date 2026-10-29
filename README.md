@@ -83,6 +83,27 @@ that the actual broker receives the `RunReceived` event. GitHub Actions starts
 dedicated PostgreSQL and RabbitMQ services for this test. Avoid pointing the
 integration test at a shared or production database.
 
+The healthy ingestion tests are independent from a controlled failure
+simulation suite. Run the simulation locally with:
+
+```bash
+python -m pytest \
+  -c services/ingestion/pytest.ini \
+  services/ingestion/failure_simulation/test_ingestion_failures.py
+```
+
+The simulation executes deterministic checks against a mock payment
+application, generates a 15-case JUnit report from those check results, and
+submits it to the real ingestion API using an isolated SQLite database. Its
+sample intentionally contains 9 passing and 6 failing simulated cases; these
+failures are not ingestion API test failures and do not affect the healthy
+suite. The generated `artifacts/failure-simulation-junit.xml`,
+`artifacts/failure-simulation-execution.log`, and
+`artifacts/failure-simulation-summary.txt` are uploaded by the separately
+selectable **Ingestion failure simulation** workflow
+(`workflow_dispatch`). The summary identifies the failures as controlled
+payment-application simulations.
+
 The workflow runs automatically on pushes and pull requests, or manually from
 the repository's **Actions → Ingestion tests** page. Each workflow run includes
 a per-test-case pass/fail summary. Download the test files from **Actions →
