@@ -45,6 +45,7 @@ def integration_services() -> Iterator[tuple[Engine, str, str]]:
 
     config = Config(str(SERVICE_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_DIR / "migrations"))
+    config.config_file_name = None
     previous_database_url = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = database_url
     try:
@@ -161,24 +162,24 @@ def test_upload_persists_report_and_publishes_confirmed_event(
             assert raw_response.status_code == 200
             assert raw_response.content == REALISTIC_JUNIT_XML
 
-        event = asyncio.run(_receive_event(rabbitmq_url, queue_name))
-        assert event["event_type"] == "RunReceived"
-        assert event["run_id"] == run_id
-        assert event["payload"]["commit_sha"] == commit_sha
-        assert event["payload"]["branch"] == "feature/checkout"
+            event = asyncio.run(_receive_event(rabbitmq_url, queue_name))
+            assert event["event_type"] == "RunReceived"
+            assert event["run_id"] == run_id
+            assert event["payload"]["commit_sha"] == commit_sha
+            assert event["payload"]["branch"] == "feature/checkout"
 
-        with engine.connect() as connection:
-            stored_run = connection.execute(
-                select(runs).where(runs.c.run_id == run_id)
-            ).mappings().one()
-        _wait_for_published_event(engine, run_id)
-        with engine.connect() as connection:
-            stored_events = connection.execute(
-                select(outbox).where(outbox.c.payload["run_id"].as_string() == run_id)
-            ).mappings().all()
-        assert stored_run["raw_xml"] == REALISTIC_JUNIT_XML
-        assert stored_run["status"] == "received"
-        assert len(stored_events) == 1
-        assert stored_events[0]["published_at"] is not None
+            with engine.connect() as connection:
+                stored_run = connection.execute(
+                    select(runs).where(runs.c.run_id == run_id)
+                ).mappings().one()
+            _wait_for_published_event(engine, run_id)
+            with engine.connect() as connection:
+                stored_events = connection.execute(
+                    select(outbox).where(outbox.c.payload["run_id"].as_string() == run_id)
+                ).mappings().all()
+            assert stored_run["raw_xml"] == REALISTIC_JUNIT_XML
+            assert stored_run["status"] == "received"
+            assert len(stored_events) == 1
+            assert stored_events[0]["published_at"] is not None
     finally:
         asyncio.run(_delete_event_queue(rabbitmq_url, queue_name))
