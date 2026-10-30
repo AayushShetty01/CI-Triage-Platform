@@ -1,21 +1,40 @@
 # CI-Triage-Platform
-CI Test-Failure Triage Platform is an event-driven distributed system that automates CI test analysis. Built with FastAPI, RabbitMQ, PostgreSQL, and a local LLM, it ingests JUnit reports, classifies recurring failures, detects flaky tests, and provides actionable insights through APIs and dashboards.
 
-## Ingestion service
+CI Test-Failure Triage Platform is an event-driven distributed system that
+automates CI test analysis. It uses FastAPI, RabbitMQ, PostgreSQL, and a local
+LLM to ingest JUnit reports, classify recurring failures, detect flaky tests,
+and provide actionable insights through APIs and dashboards.
 
-The Ingestion service accepts JUnit XML reports, stores each run and a
-`RunReceived` event atomically, then relays events to RabbitMQ. Report uploads
-are limited to 10 MiB by default. Duplicate submissions with the same commit
-SHA and report bytes return the same `run_id` without creating another run.
+## Ingestion
 
-Start Ingestion and its PostgreSQL and RabbitMQ dependencies with Docker Compose:
+Ingestion accepts JUnit XML reports up to `MAX_REPORT_SIZE_BYTES` (10 MiB by
+default), stores each run and its `RunReceived` event in PostgreSQL in one
+transaction, and relays events asynchronously to RabbitMQ. Duplicate
+submissions with the same commit SHA and report bytes return the existing
+`run_id`. The transaction and API behavior are implemented in
+[`main.py`](services/ingestion/app/main.py), with the database schema in
+[`database.py`](services/ingestion/app/database.py); relay behavior is in
+[`relay.py`](services/ingestion/app/relay.py).
+
+### Start the local service
+
+Use Docker Compose and Python 3.11 for the local test tools:
 
 ```bash
 cp .env.example .env
-docker compose up --build ingestion
+docker compose up -d --build
 ```
 
-The service listens on port `8001`. Submit raw XML using headers:
+Ingestion listens on port `8001`. The supported endpoints are:
+
+- `POST /runs`: upload a raw XML report (`application/xml`, `text/xml`, or
+  `application/junit+xml`) or a multipart form with `file`/`report`,
+  `commit_sha`, and `branch`.
+- `GET /internal/runs/{run_id}/raw`: retrieve the original uploaded XML bytes.
+- `GET /health`: health response.
+- `GET /metrics`: Prometheus metrics.
+
+For raw XML, submit required metadata and authentication headers:
 
 ```bash
 curl -X POST http://localhost:8001/runs \
@@ -26,171 +45,117 @@ curl -X POST http://localhost:8001/runs \
   --data-binary @junit.xml
 ```
 
-Multipart uploads are also accepted, using `file` (or `report`), `commit_sha`,
-and `branch` fields. Both formats return HTTP `202` with the stable `run_id`.
-`POST /runs` requires `X-API-Key` matching `INGESTION_API_KEY`.
-`GET /internal/runs/{run_id}/raw` requires `X-Internal-Key` matching
-`INTERNAL_API_KEY`. The Parser service must send `X-Internal-Key` and read its
-`INGESTION_BASE_URL` and `INTERNAL_API_KEY` configuration to retrieve reports.
-`/health` and `/metrics` remain open for health checks and Prometheus scraping.
-The development keys are in `.env.example`; override them outside development.
+`POST /runs` requires `X-API-Key`, matching `INGESTION_API_KEY`.
+`GET /internal/runs/{run_id}/raw` requires `X-Internal-Key`, matching
+`INTERNAL_API_KEY`. The Parser service must send `X-Internal-Key` and read
+`INGESTION_BASE_URL` and `INTERNAL_API_KEY` from its configuration. `/health`
+and `/metrics` remain open so health checks and Prometheus can access them.
 
 Authentication is deliberately minimal (static shared keys), not a production
-design.
-Ingestion emits one JSON object per application, request, and relay log line,
-including request IDs and run/event IDs when known. API keys, request bodies,
-and XML are not logged; Uvicorn access logging is disabled to avoid duplicate
-plain-text request lines.
+design. Development values are defined in `.env.example` and Compose; configure
+non-development values outside local development.
+The authentication and Compose environment settings are defined in
+[`main.py`](services/ingestion/app/main.py) and
+[`.env.example`](.env.example).
+
+### Configuration, events, and logs
+
+The relevant settings are:
+
+- `DATABASE_URL` and `RABBITMQ_URL` (Compose builds these from its credentials)
+- `INGESTION_API_KEY` and `INTERNAL_API_KEY`
+- `MAX_REPORT_SIZE_BYTES`
+- `OUTBOX_POLL_INTERVAL_SECONDS`, `RELAY_POLL_INTERVAL_SECONDS`,
+  `RELAY_BACKOFF_CAP_SECONDS`, and `OUTBOX_BATCH_SIZE`
+- `INGESTION_RETRY_AFTER_SECONDS`
+- `INGESTION_BASE_URL` for the Parser's Ingestion endpoint
 
 The relay publishes persistent messages to the durable `triage.events` topic
-exchange with publisher confirms. A pending event is marked published only
-after confirmation. Delivery is at least once: if the relay stops after a
-broker confirmation but before the database update, it can publish again with
-the same `event_id`, so consumers should be idempotent. Events follow the
-[`RunReceived` JSON Schema](contracts/events/run_received.schema.json). The
-contract samples are under `contracts/events/samples/` for consumer tests.
+exchange with publisher confirms. It marks an outbox row published only after
+the broker confirms. Delivery is at least once: a retry can redeliver the same
+event, so consumers should be idempotent and use the stable `event_id`.
+Ingestion logs are JSON lines with request IDs and run/event IDs when known.
+API keys, request bodies, and XML are not logged.
 
-Compose initializes a dedicated `ingestion` database role and schema on the
-first start. Set `INGESTION_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
-`RABBITMQ_USER`, and `RABBITMQ_PASSWORD` in the environment to override local
-development credentials. `MAX_REPORT_SIZE_BYTES`, `OUTBOX_POLL_INTERVAL_SECONDS`,
-`RELAY_POLL_INTERVAL_SECONDS`, `RELAY_BACKOFF_CAP_SECONDS`,
-`INGESTION_RETRY_AFTER_SECONDS`, `OUTBOX_BATCH_SIZE`, `INGESTION_API_KEY`, and
-`INTERNAL_API_KEY` configure upload, relay retry, client retry, and endpoint
-authentication. The relay uses full-jitter exponential
-backoff on errors; the legacy `OUTBOX_POLL_INTERVAL_SECONDS` remains the
-fallback when `RELAY_POLL_INTERVAL_SECONDS` is unset.
+The application metrics include `ingest_requests_total`,
+`ingest_latency_seconds`, `ingest_auth_failures_total`, `outbox_pending`,
+`outbox_oldest_pending_seconds`, `relay_publish_errors_total`, and
+`relay_consecutive_failures`. The oldest-pending gauge is zero when no
+unpublished outbox row remains. Metric definitions are in
+[`main.py`](services/ingestion/app/main.py); the relay refreshes outbox gauges
+in [`relay.py`](services/ingestion/app/relay.py).
 
-To run the fast tests locally from the repository root:
+### Tests
 
-Use Python 3.11, as required by the project:
+Install development dependencies:
 
 ```bash
 python -m pip install -r services/ingestion/requirements-dev.txt
-mkdir -p artifacts
-python -m pytest \
-  -c services/ingestion/pytest.ini \
-  services/ingestion/tests \
-  --junitxml=artifacts/junit-report.xml
 ```
 
-The test run writes `artifacts/ingestion-test.log` as JSON lines with API
-request paths, response codes, timings, outcomes, and failure tracebacks.
-Request bodies, XML, and keys are not logged. The run also writes
-`artifacts/ingestion-summary.txt`
-with case counts, execution percentages, failed test IDs, and failure messages.
-Headers and query values are not logged, and credential-like values are
-redacted. The JUnit XML records the actual pytest outcomes. These files are
-uploaded as the `ingestion-test-artifacts` artifact by GitHub Actions, including
-when tests fail.
-
-The named pytest cases inventory `/health` and `/metrics`; raw and multipart
-JUnit uploads, accepted XML media types, metadata sources and validation,
-malformed/unsafe XML, size and content-type limits, duplicate/idempotent
-submissions, persisted report retrieval, and outbox/relay success and failure.
-Contract tests validate both shared samples, events read from the outbox,
-legacy-event relay transformation, invalid envelope examples, and the message
-received from RabbitMQ.
-The integration case also verifies persistence and the delivered event against
-the configured PostgreSQL database and RabbitMQ broker. JUnit case names are
-the pytest node IDs; the execution log and text summary also include stable
-`ING-...` identifiers for each test.
-
-The integration test also runs when `INGESTION_TEST_DATABASE_URL` and
-`INGESTION_TEST_RABBITMQ_URL` point to an isolated PostgreSQL database and
-RabbitMQ broker. It applies the migrations, uploads a representative report
-through the API, verifies the stored report and duplicate behavior, and checks
-that the actual broker receives the `RunReceived` event. GitHub Actions starts
-dedicated PostgreSQL and RabbitMQ services for this test. Avoid pointing the
-integration test at a shared or production database.
-
-The healthy ingestion tests are independent from a controlled failure
-simulation suite. Run the simulation locally with:
+Run the default unit and integration test suite:
 
 ```bash
-python -m pytest \
-  -c services/ingestion/pytest.ini \
-  services/ingestion/failure_simulation/test_ingestion_failures.py
+python -m pytest -c services/ingestion/pytest.ini services/ingestion/tests
 ```
 
-The simulation executes deterministic checks against a mock payment
-application, generates a 15-case JUnit report from those check results, and
-submits it to the real ingestion API using an isolated SQLite database. Its
-sample intentionally contains 9 passing and 6 failing simulated cases; these
-failures are not ingestion API test failures and do not affect the healthy
-suite. The generated `artifacts/failure-simulation-junit.xml`,
-`artifacts/failure-simulation-execution.log`, and
-`artifacts/failure-simulation-summary.txt` are uploaded by the separately
-selectable **Ingestion failure simulation** workflow
-(`workflow_dispatch`). The summary identifies the failures as controlled
-payment-application simulations.
+The tests named `test_contracts.py` validate the shared schema, samples,
+producer output, relay transformation, negative cases, and—when the configured
+integration services are available—a message received from RabbitMQ:
 
-### Real Ingestion failure tests
+```bash
+python -m pytest -c services/ingestion/pytest.ini \
+  services/ingestion/tests/test_contracts.py -q
+```
 
-The `failure`-marked scenarios exercise the Docker Compose Ingestion stack
-against real PostgreSQL and RabbitMQ containers. They are excluded from normal
-pytest runs because scenarios stop and start services. Install the Ingestion
-development requirements, Docker Compose, and start with a clean, healthy
-Compose environment; then run:
+  The test cases are in
+  [`test_contracts.py`](services/ingestion/tests/test_contracts.py) and the
+  other Ingestion tests are under
+  [`services/ingestion/tests/`](services/ingestion/tests/).
+
+The real failure-injection suite is marked `failure` and excluded from the
+default run. It stops, starts, or kills Docker Compose services and always
+attempts to restore the stack:
 
 ```bash
 make failure-tests
 ```
 
-The real scenarios cover RabbitMQ downtime and recovery, PostgreSQL downtime
-and recovery without restarting Ingestion, concurrent duplicate uploads,
-Ingestion crashes with unpublished rows, an Ingestion kill during concurrent
-uploads, and four timed RabbitMQ application outages while uploads continue.
-The broker-down scenario stops the RabbitMQ container; the flapping scenario
-stops and starts RabbitMQ's application inside the container so each measured
-outage fits the 3–5 second target (full container restarts measured about
-9 seconds). The kill test verifies every 202 is stored and published; the
-flapping test checks the continuous pending-or-queued durability invariant and
-duplicate payloads. Each run writes measured `summary.json`, per-service
-timestamped Compose logs, and drained RabbitMQ envelopes under
-`services/ingestion/failure_simulation/evidence/<scenario>/`. Generated
-evidence is git-ignored; `services/ingestion/failure_simulation/evidence/example/`
-is reserved for one reviewed example run.
+It exercises broker/database outages, crash recovery, in-flight uploads,
+broker flapping, and concurrent duplicate submissions. Scenario summaries,
+timestamped service logs, and drained messages are written under
+`services/ingestion/failure_simulation/evidence/`; generated folders are
+ignored by Git except for the committed `example/` reference. See the
+[Ingestion runbook](docs/runbook/ingestion.md) and
+[mutation results](services/ingestion/failure_simulation/MUTATION_CHECK.md).
 
-Mutation-test results for the accepted-means-durable assertions are recorded in
-`services/ingestion/failure_simulation/MUTATION_CHECK.md`.
-
-### Ingestion load test
-
-The async load driver performs a discarded warm-up, then records each measured
-request's status, latency, and run ID. It writes JSON results and a Markdown
-summary; a smoke run is available with:
+Run the 50-request load smoke:
 
 ```bash
 make load-test
 ```
 
-For controlled measurements, keep the Compose stack healthy and run, for
-example:
+Reproduce the full measured matrix (the broker-down run stops and restores
+RabbitMQ during measurement):
 
 ```bash
-python tools/load/ingestion_load.py \
-  --requests 500 --concurrency 20 --report-size small \
-  --label small-concurrency-20 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 1 --report-size small --label small-concurrency-1 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 5 --report-size small --label small-concurrency-5 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 20 --report-size small --label small-concurrency-20 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 50 --report-size small --label small-concurrency-50 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 20 --report-size small --label small-concurrency-20-repeat-1 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 20 --report-size small --label small-concurrency-20-repeat-2 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 20 --report-size small --label small-concurrency-20-repeat-3 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 100 --concurrency 5 --report-size large --label large-concurrency-5 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 100 --concurrency 20 --report-size large --label large-concurrency-20 --output-dir docs/evidence/ingestion-load
+python tools/load/ingestion_load.py --requests 500 --concurrency 20 --report-size small --label small-broker-down-concurrency-20 --output-dir docs/evidence/ingestion-load --broker-down
 ```
 
-The `--report-size` options are `small` (10 synthetic testcases) and `large`
-(5,000 synthetic testcases). Results also include outbox metrics, machine and
-container facts, and `docker stats` samples. Use `--broker-down` to have the
-tool stop RabbitMQ for the measured phase, restore it, and record the time for
-pending rows to drain. Do not treat results from one laptop as production
-capacity figures.
+For the full load commands and saved measurements, see
+[`docs/evidence/ingestion-load/SUMMARY.md`](docs/evidence/ingestion-load/SUMMARY.md).
+Those results are from one laptop and are not production capacity figures.
 
-The workflow runs automatically on pushes and pull requests, or manually from
-the repository's **Actions → Ingestion tests** page. Each workflow run includes
-a per-test-case pass/fail summary. Download the test files from **Actions →
-select the workflow run → Artifacts → ingestion-test-artifacts**.
-
-GitLab CI is also configured in `.gitlab-ci.yml`. It runs the same suite on
-branch and merge-request pipelines using isolated PostgreSQL and RabbitMQ
-service containers. GitLab publishes `artifacts/junit-report.xml` as a test
-report and uploads the log and text summary for one week even when the test job
-fails. This requires a GitLab runner that supports service containers. In
-GitLab, download the files from **Build → Pipelines → select the pipeline →
-ingestion-tests → Browse artifacts**. Test failures remain failures; the normal
-pipeline does not force a target pass/fail ratio or inject test faults.
+The `RunReceived` event contract is owned by Ingestion. See the
+[schema](contracts/events/run_received.schema.json),
+[consumer samples](contracts/events/samples/), and
+[contract documentation](contracts/README.md).

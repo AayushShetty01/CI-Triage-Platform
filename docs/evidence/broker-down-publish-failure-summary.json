@@ -1,0 +1,20 @@
+{
+  "scenario": "test_broker_down with an additional externally timed RabbitMQ SIGKILL during recovery publish",
+  "started_at": "2026-10-30T14:13:33.911475+00:00",
+  "ended_at": "2026-10-30T14:15:06.686454+00:00",
+  "pytest_outcome": "failed",
+  "pytest_duration_seconds": 96.36,
+  "acknowledged_uploads": 20,
+  "all_upload_responses_were_202": true,
+  "assertion": "test queue should contain exactly 20 delivered events",
+  "expected_queue_messages": 20,
+  "observed_queue_messages_at_timeout": 26,
+  "distinct_run_ids_in_drained_messages": 20,
+  "distinct_event_ids_in_drained_messages": 20,
+  "duplicate_messages": 6,
+  "duplicate_payloads_match": true,
+  "failure": "Timed out waiting for the test queue to contain 20 delivered events after 30s; last observed value: 26",
+  "relay_publish_failed_log_captured": true,
+  "interpretation": "The additional SIGKILL interrupted a real publish and caused the exact-count assertion to fail with more deliveries than expected. This is consistent with the documented at-least-once delivery semantics; it is not evidence that an acknowledged run was lost.",
+  "source": "services/ingestion/failure_simulation/evidence/broker_down/summary.json and captured pytest output from the supplemental run"
+}
