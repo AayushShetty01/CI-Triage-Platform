@@ -427,13 +427,22 @@ def wait_until(
     )
 
 
-def synthetic_junit_report(index: int) -> bytes:
+def synthetic_junit_report(index: int, testcase_count: int = 1) -> bytes:
+    if testcase_count < 1:
+        raise ValueError("testcase_count must be positive")
     suite_name = f"failure-scenario-{index:03d}"
-    testcase_name = f"sample_case_{index:03d}"
+    testcases = "".join(
+        f'<testcase classname="ingestion.failure_simulation.synthetic.generated.report" '
+        f'name="sample_case_{index:03d}_{case_index:05d}" time="0.001">'
+        f"<system-out>Generated representative test output for case {case_index} "
+        "to exercise the ingestion report storage and transport path.</system-out>"
+        "</testcase>"
+        for case_index in range(testcase_count)
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        f'<testsuite name="{suite_name}" tests="1" failures="0" errors="0" skipped="0">'
-        f'<testcase classname="ingestion.failure_simulation" name="{testcase_name}"/>'
+        f'<testsuite name="{suite_name}" tests="{testcase_count}" failures="0" errors="0" skipped="0">'
+        f"{testcases}"
         "</testsuite>"
     ).encode("utf-8")
 

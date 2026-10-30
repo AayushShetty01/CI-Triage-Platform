@@ -1,0 +1,710 @@
+{
+  "broker_recovery_to_pending_zero_seconds": null,
+  "configuration": {
+    "broker_down": false,
+    "concurrency": 20,
+    "report_size": "large",
+    "requests": 100
+  },
+  "docker_stats_during_measurement": [
+    {
+      "captured_at": "2026-10-30T14:04:14.712423+00:00",
+      "containers": [
+        {
+          "BlockIO": "287kB / 0B",
+          "CPUPerc": "78.65%",
+          "Container": "37db4625b476d54ad7a7805f1c66f2d4d7a324fa26063d426903ccfe25ee1c26",
+          "ID": "37db4625b476",
+          "MemPerc": "2.39%",
+          "MemUsage": "93.54MiB / 3.825GiB",
+          "Name": "ci-triage-platform-ingestion-1",
+          "NetIO": "193MB / 186MB",
+          "PIDs": "4"
+        },
+        {
+          "BlockIO": "13.3MB / 50.5MB",
+          "CPUPerc": "15.73%",
+          "Container": "23a0a7e4245642804985531c63da401b8614d8b31f9523d9f5222d3aaf44a0c0",
+          "ID": "23a0a7e42456",
+          "MemPerc": "1.23%",
+          "MemUsage": "48.19MiB / 3.825GiB",
+          "Name": "ci-triage-platform-postgres-1",
+          "NetIO": "212MB / 4.23MB",
+          "PIDs": "8"
+        }
+      ]
+    },
+    {
+      "captured_at": "2026-10-30T14:04:18.046696+00:00",
+      "containers": [
+        {
+          "BlockIO": "287kB / 0B",
+          "CPUPerc": "5.47%",
+          "Container": "37db4625b476d54ad7a7805f1c66f2d4d7a324fa26063d426903ccfe25ee1c26",
+          "ID": "37db4625b476",
+          "MemPerc": "2.23%",
+          "MemUsage": "87.53MiB / 3.825GiB",
+          "Name": "ci-triage-platform-ingestion-1",
+          "NetIO": "287MB / 289MB",
+          "PIDs": "4"
+        },
+        {
+          "BlockIO": "13.3MB / 53.6MB",
+          "CPUPerc": "29.09%",
+          "Container": "23a0a7e4245642804985531c63da401b8614d8b31f9523d9f5222d3aaf44a0c0",
+          "ID": "23a0a7e42456",
+          "MemPerc": "1.29%",
+          "MemUsage": "50.56MiB / 3.825GiB",
+          "Name": "ci-triage-platform-postgres-1",
+          "NetIO": "284MB / 4.32MB",
+          "PIDs": "8"
+        }
+      ]
+    }
+  ],
+  "finished_at": "2026-10-30T14:04:19.208160+00:00",
+  "label": "large-concurrency-20",
+  "machine_facts": {
+    "cpu_cores_logical": 6,
+    "cpu_model": "Apple A18 Pro",
+    "docker_version": "29.7.2",
+    "git_commit": "0fc7bb71cf39db7934fb333c111bda8ef994d6de",
+    "ingestion_settings": {
+      "INGESTION_RETRY_AFTER_SECONDS": "5",
+      "MAX_REPORT_SIZE_BYTES": "10485760",
+      "OUTBOX_BATCH_SIZE": "50",
+      "OUTBOX_POLL_INTERVAL_SECONDS": "1",
+      "RELAY_BACKOFF_CAP_SECONDS": "30",
+      "RELAY_POLL_INTERVAL_SECONDS": "1"
+    },
+    "os": "macOS-27.2-arm64-arm-64bit-Mach-O",
+    "ram_bytes": 8589934592
+  },
+  "measured_ended_at": "2026-10-30T14:04:18.047502+00:00",
+  "metrics_at_end": {
+    "outbox_oldest_pending_seconds": 37.884927,
+    "outbox_pending": 3009.0
+  },
+  "requests": [
+    {
+      "index": 0,
+      "latency_ms": 1000.8451249996142,
+      "run_id": "19cb6d67ef3db3ee0ad1485c420adaed83d4d4498d134f0976d45f93e4f19865",
+      "status": 202
+    },
+    {
+      "index": 1,
+      "latency_ms": 1223.8813749972905,
+      "run_id": "22b8272b8a64230ce20c27469eebef135c035d5ecaede495a7c8576c361faae1",
+      "status": 202
+    },
+    {
+      "index": 2,
+      "latency_ms": 1221.6582920009387,
+      "run_id": "25cee2129799f4f460a7206aab5ae8c8fa8e9d87a3a88a71e9bc5f1db3d9ede4",
+      "status": 202
+    },
+    {
+      "index": 3,
+      "latency_ms": 1218.6065830028383,
+      "run_id": "b5fdcb635198bf1d02cf4710c2cdc8f04484c9e3f327f50b7902b47700d5d137",
+      "status": 202
+    },
+    {
+      "index": 4,
+      "latency_ms": 1169.603875001485,
+      "run_id": "914dbad60079e329040a1a0f86e7dee790a7318ddc7a3c81919185d68fc65246",
+      "status": 202
+    },
+    {
+      "index": 5,
+      "latency_ms": 1160.675708000781,
+      "run_id": "b8c0ef105ec39ef3dfe2268a09645a0b6014fb98e8bc6930681ed1e05742d3a3",
+      "status": 202
+    },
+    {
+      "index": 6,
+      "latency_ms": 1171.9102919996658,
+      "run_id": "6c36c9d4991106ebace443402820fb49a218ff23e86ea14b919dece180324808",
+      "status": 202
+    },
+    {
+      "index": 7,
+      "latency_ms": 1170.5163340011495,
+      "run_id": "6432e23074bfbacf9929e6737b5924dacf30d4675198498f342edd3834d668e5",
+      "status": 202
+    },
+    {
+      "index": 8,
+      "latency_ms": 1167.5792080022802,
+      "run_id": "d1cf2118cab5a80a4d21be2485f81d37d6245658d51f0fb74d2d1328c30145a0",
+      "status": 202
+    },
+    {
+      "index": 9,
+      "latency_ms": 1166.847415999655,
+      "run_id": "64fa259de6736f11575680bc73fccb2f3eb638e42a434edd369b3c4d4eaa7f12",
+      "status": 202
+    },
+    {
+      "index": 10,
+      "latency_ms": 1163.927166002395,
+      "run_id": "15f91b980f61a777a6463cdc5c4d3abb4c1eba05d13d095d5f31a38383946468",
+      "status": 202
+    },
+    {
+      "index": 11,
+      "latency_ms": 1163.121958001284,
+      "run_id": "3d4feb14361e42303bc9c48483fb1f4e7806bf33eb372d92592fa31919f97ce1",
+      "status": 202
+    },
+    {
+      "index": 12,
+      "latency_ms": 1157.7585000013642,
+      "run_id": "e95a55af275a9e1c3332936cb63cef26721e89d72215845d5f9ea6422c84cf98",
+      "status": 202
+    },
+    {
+      "index": 13,
+      "latency_ms": 1155.9116249991348,
+      "run_id": "91ec56f224739197c123d59b5a5e15a153170765d3b36230647f05ed5d9cf6f9",
+      "status": 202
+    },
+    {
+      "index": 14,
+      "latency_ms": 1154.508415998862,
+      "run_id": "975261bdaaee98af6094965e3309f84590c1fa20888e6812e5536fd564dbbe91",
+      "status": 202
+    },
+    {
+      "index": 15,
+      "latency_ms": 1185.8175830020627,
+      "run_id": "4b7c8e47537ebf5cdad8feffe2bf53e2e96a643af908b9c61a3e186c78c522b3",
+      "status": 202
+    },
+    {
+      "index": 16,
+      "latency_ms": 1182.3068330013484,
+      "run_id": "6dfa40795b15c5e6b343fe1d83ee09218df59426689cc36c06bca7c0eff089f5",
+      "status": 202
+    },
+    {
+      "index": 17,
+      "latency_ms": 1146.612708002067,
+      "run_id": "ff7226eaa65689a7d8270acfb36c580292b2f39b92e7f059c9b9173cefecd8b8",
+      "status": 202
+    },
+    {
+      "index": 18,
+      "latency_ms": 944.4186249966151,
+      "run_id": "ce630516cd748b9d20fd53caa601919cc7f02accea7b4d534552f660a71cd228",
+      "status": 202
+    },
+    {
+      "index": 19,
+      "latency_ms": 936.216667003464,
+      "run_id": "333b11dea20536cbcef99ed3a5345b5ea95947c46fda4b65e82b273b84bebe50",
+      "status": 202
+    },
+    {
+      "index": 20,
+      "latency_ms": 341.94770799877006,
+      "run_id": "859019ecc41bba87611051f0e562b676359b37ac5e3e98af064c0e186f9ffbdd",
+      "status": 202
+    },
+    {
+      "index": 21,
+      "latency_ms": 341.55983299933723,
+      "run_id": "8c0e670ed970e61bc8e2d1b8e52773425dc215673d281e56f1eea87868d5bb9e",
+      "status": 202
+    },
+    {
+      "index": 22,
+      "latency_ms": 337.0972080010688,
+      "run_id": "6c85b9c5cde6f995a844678d487a4c42fe9b6a258d6609b1ab31265e130ba6a2",
+      "status": 202
+    },
+    {
+      "index": 23,
+      "latency_ms": 461.09520900063217,
+      "run_id": "a5d23675a609672b63c95cbec23feb31e9e1bf4d4a71311b852ca1c93cdb1f33",
+      "status": 202
+    },
+    {
+      "index": 24,
+      "latency_ms": 459.35150000150315,
+      "run_id": "746c531acd327354f47fdcc1affa27867c3f01545a4daaacae8501bddca6e2d9",
+      "status": 202
+    },
+    {
+      "index": 25,
+      "latency_ms": 452.10666700222646,
+      "run_id": "36f5d2e4512ac6c5500f55eba4c06056ff1d9cf5823cca8c87ae3fd1fea14feb",
+      "status": 202
+    },
+    {
+      "index": 26,
+      "latency_ms": 638.9292499989097,
+      "run_id": "017f055e64b8581b6c4831a26126613ac67a6c4e1909299e758216f3a924cdbb",
+      "status": 202
+    },
+    {
+      "index": 27,
+      "latency_ms": 868.305625001085,
+      "run_id": "c17564d0cdaf44fb51990d54d38367f71ac5fea51781685a0252618ac376e93b",
+      "status": 202
+    },
+    {
+      "index": 28,
+      "latency_ms": 490.6617919987184,
+      "run_id": "067b18e2dad52641e2796db36aa8495aeb945c4f432d2c15d80780a8fb785e73",
+      "status": 202
+    },
+    {
+      "index": 29,
+      "latency_ms": 641.7665419976402,
+      "run_id": "cb2ae19e7f4680e3c29a72d23fff4a0615ed80a1eab94aeed9259a44cb8c1330",
+      "status": 202
+    },
+    {
+      "index": 30,
+      "latency_ms": 858.7416250011302,
+      "run_id": "4363955cb5f8db377ee950f04d78524b09c89d0766958ad31a08a31c6cafaa20",
+      "status": 202
+    },
+    {
+      "index": 31,
+      "latency_ms": 623.1713750021299,
+      "run_id": "3ec9b4aaad478cb2d90de447e25a7e774ed2221339f82e5e9384e6dd6dc102e2",
+      "status": 202
+    },
+    {
+      "index": 32,
+      "latency_ms": 851.5200420006295,
+      "run_id": "4c4f2ce6c7063b50cbc2c76db7e1c108f055f1ed3997443d20886d702d6bf25b",
+      "status": 202
+    },
+    {
+      "index": 33,
+      "latency_ms": 433.08279199845856,
+      "run_id": "7fec2b57e720c733f5f394ac9c166cd081480a37f30fb9e391f8d97b0b116bc1",
+      "status": 202
+    },
+    {
+      "index": 34,
+      "latency_ms": 624.4543329994485,
+      "run_id": "e69bd7ee3d1df74c0484a17ff4e071a66acad02e72e506b6af8c1010dbee815e",
+      "status": 202
+    },
+    {
+      "index": 35,
+      "latency_ms": 832.8447909989336,
+      "run_id": "d62421f6a12d29c32961d826106346d4798f41de5a74b589c5a7dd68a2974606",
+      "status": 202
+    },
+    {
+      "index": 36,
+      "latency_ms": 828.1497499992838,
+      "run_id": "907179ef5454a125dbb9eab0895fb04b9a848b6b4ceff01cb6550555850f064c",
+      "status": 202
+    },
+    {
+      "index": 37,
+      "latency_ms": 401.6735829973186,
+      "run_id": "1d8bef16560a1ea59ad990b1aea51ea8be7a2acb1bb96466152c4e345bc57103",
+      "status": 202
+    },
+    {
+      "index": 38,
+      "latency_ms": 398.6309590000019,
+      "run_id": "39cd6d378698907deea3603eef7fd246a94166ead3295f310cd7f5251a802c69",
+      "status": 202
+    },
+    {
+      "index": 39,
+      "latency_ms": 811.1005419996218,
+      "run_id": "c64bfb548ceb5abcc9aa12325d8a60653460a440b530d72d47d4b5f20518c6a8",
+      "status": 202
+    },
+    {
+      "index": 40,
+      "latency_ms": 863.3703339983185,
+      "run_id": "c0e662acbb0709709dfb1d0f09463bdbec9e32e019c0d8ebb84e2be88056a705",
+      "status": 202
+    },
+    {
+      "index": 41,
+      "latency_ms": 856.2671250001586,
+      "run_id": "4d136c93619c7ea6578b102c94ebce318ed98c52775f2fb96657c4224d40970c",
+      "status": 202
+    },
+    {
+      "index": 42,
+      "latency_ms": 845.9331249978277,
+      "run_id": "95ac98c3479a9f12f20197a17c0d3173e0d1746161cec962d239b434cae7e438",
+      "status": 202
+    },
+    {
+      "index": 43,
+      "latency_ms": 664.1587080011959,
+      "run_id": "81b9ab489c3a552cecd78f1a6afed9859453dcd52040af36fb7060409c10665e",
+      "status": 202
+    },
+    {
+      "index": 44,
+      "latency_ms": 656.4779170003021,
+      "run_id": "44b93fb8baeb2d9b73fd4f4804d2a3b5675b5522c81116ba64f0c59ab16b5892",
+      "status": 202
+    },
+    {
+      "index": 45,
+      "latency_ms": 828.0789170021308,
+      "run_id": "ea294c89790097df8b42f41d500071421f8993d28249c5d2e14599077b7435fa",
+      "status": 202
+    },
+    {
+      "index": 46,
+      "latency_ms": 829.4319999986328,
+      "run_id": "314e545c016bd427394c235bb077c918b7e1176a1ae05f4eddcddc7ee8207ad7",
+      "status": 202
+    },
+    {
+      "index": 47,
+      "latency_ms": 824.0634169997065,
+      "run_id": "ce2cdf2ebf960e80b78480c40be439a01cdf7e1b4161e03fb8873694e3ff5e66",
+      "status": 202
+    },
+    {
+      "index": 48,
+      "latency_ms": 816.8820829996548,
+      "run_id": "e0cf2873273c91d1b2ff6eef919e4ec2b68ccefac5cf919ff97357a4b69c4834",
+      "status": 202
+    },
+    {
+      "index": 49,
+      "latency_ms": 800.9277080018364,
+      "run_id": "8203219d708a88c561132ec12e62d76925d7f6ec2529f49e602283e9f4195928",
+      "status": 202
+    },
+    {
+      "index": 50,
+      "latency_ms": 801.398915999016,
+      "run_id": "95c1dd663040682f47e19e32a1216550df2a22faf2442fab31dfa0d62fe82c5e",
+      "status": 202
+    },
+    {
+      "index": 51,
+      "latency_ms": 800.7774159996188,
+      "run_id": "eb462daa07487b1bdc43ac2078aec5dec875d9c02044e512e4ade21c8b4a6623",
+      "status": 202
+    },
+    {
+      "index": 52,
+      "latency_ms": 792.7187080022122,
+      "run_id": "060fc4993af1288066d47e342811137724dbdaa92cf7f103194082350bdf14bd",
+      "status": 202
+    },
+    {
+      "index": 53,
+      "latency_ms": 786.3052499997139,
+      "run_id": "d3d0a0eb1816b96fa118aaaeef00d2c52873139fa2ae8e5af242d2bda3c3794e",
+      "status": 202
+    },
+    {
+      "index": 54,
+      "latency_ms": 784.4533749994298,
+      "run_id": "21b65bcc35884a7a1bb557928e4184e9609cac7036516d1b6aa134396524701a",
+      "status": 202
+    },
+    {
+      "index": 55,
+      "latency_ms": 780.6445839996741,
+      "run_id": "a3221d7ccf3815e35c5b113e79eba5879154ec7fb0172c747902f2bd8d0c30a5",
+      "status": 202
+    },
+    {
+      "index": 56,
+      "latency_ms": 782.2105420018488,
+      "run_id": "5353ce8dd4d6981ffd0df04b6a6994bb502e72d332c4e9af61fe6672fee70bf4",
+      "status": 202
+    },
+    {
+      "index": 57,
+      "latency_ms": 776.4948750009353,
+      "run_id": "f643767bb2f43a7128a1b7ba7af36d901157421668950e5420a9f90386a6da15",
+      "status": 202
+    },
+    {
+      "index": 58,
+      "latency_ms": 773.4095829982834,
+      "run_id": "9f0fd9488e2fb649699601e4e32484c269c72738f6fc0c81b5abc27f4688b638",
+      "status": 202
+    },
+    {
+      "index": 59,
+      "latency_ms": 771.8354999997246,
+      "run_id": "b8d28092413e602b8dbd8b7d514c275f3cd787f40bdcbbfc5d2b6576f0116e4f",
+      "status": 202
+    },
+    {
+      "index": 60,
+      "latency_ms": 798.9341669999703,
+      "run_id": "a5568e71b04e922414e566270591e8e66aaee214096b115a8ac0e1327f035388",
+      "status": 202
+    },
+    {
+      "index": 61,
+      "latency_ms": 803.9448340023228,
+      "run_id": "f3ece7bc9ec167b5b50eae62170e50979ea8cd32fa436ec0f6dbffe7d6f47d0a",
+      "status": 202
+    },
+    {
+      "index": 62,
+      "latency_ms": 791.488582999591,
+      "run_id": "bab8437a4dcd07918a0958396a7a1ece51d79bf41c46c474a69026e6b625c102",
+      "status": 202
+    },
+    {
+      "index": 63,
+      "latency_ms": 797.5772079989838,
+      "run_id": "52ac63dbaf75858cd50f3cfe14d26ed1c9c70427f8551bb549e0a4c58854dd60",
+      "status": 202
+    },
+    {
+      "index": 64,
+      "latency_ms": 797.6946670023608,
+      "run_id": "32a50966962f375d3aecb5f5a1cf21b3b286c2cdacaca56951fc635b3ba986db",
+      "status": 202
+    },
+    {
+      "index": 65,
+      "latency_ms": 804.888040998776,
+      "run_id": "4118302bdbfce89224fad37028e630b5135678b81534f137258fab45c21c2d9d",
+      "status": 202
+    },
+    {
+      "index": 66,
+      "latency_ms": 816.9687499976135,
+      "run_id": "7afa437b090dfc8ca0a1c42d1607f6aa62ac2d5a1793816cebc1ce891fcbe5e0",
+      "status": 202
+    },
+    {
+      "index": 67,
+      "latency_ms": 805.7990830020572,
+      "run_id": "b90b735cbea5ce5ed12a3795b132f9121242283e326b53a726af5bf135afcdc8",
+      "status": 202
+    },
+    {
+      "index": 68,
+      "latency_ms": 800.7293750015378,
+      "run_id": "a8542510b524635971c97cec6c97a7826320c05dc0d0a4f90f42384f16db5331",
+      "status": 202
+    },
+    {
+      "index": 69,
+      "latency_ms": 804.0736250004556,
+      "run_id": "cee43cbbee81bffc92f9a13ad431ee8cde87ee52ea3c3eb27d5bb4ac4d2ba505",
+      "status": 202
+    },
+    {
+      "index": 70,
+      "latency_ms": 899.7280420007883,
+      "run_id": "23a691ea0b5ca9c066c7813b20e79f1daa5cfac8d897afc4ad5e1bb2623158f5",
+      "status": 202
+    },
+    {
+      "index": 71,
+      "latency_ms": 897.0429999972112,
+      "run_id": "0ef2d724603bcdf7db04dc3feefa8c58bd1f56246d805de8a1b1039179455376",
+      "status": 202
+    },
+    {
+      "index": 72,
+      "latency_ms": 873.7377920006111,
+      "run_id": "8f698b874aa6e37678a38fd7c08f4584ac2363ba5449c794b03beeb013071b7c",
+      "status": 202
+    },
+    {
+      "index": 73,
+      "latency_ms": 869.8094999999739,
+      "run_id": "3fc3a91ea24bd415d732f5c71a0865ff39088fb57f7e3b2348f928e8df1bfa1b",
+      "status": 202
+    },
+    {
+      "index": 74,
+      "latency_ms": 938.2571249989269,
+      "run_id": "8c2abf5319e3bea6e230c3a82f077f20902c1e88f7c509975840d975ae30ebfa",
+      "status": 202
+    },
+    {
+      "index": 75,
+      "latency_ms": 937.8197500009264,
+      "run_id": "4f5a868388924a513397c2b0397b81635cb4f35534a39c7187bb9a39cd5ed11a",
+      "status": 202
+    },
+    {
+      "index": 76,
+      "latency_ms": 929.4077089980419,
+      "run_id": "2c7a045468197d6579ecc12b15de0dae4729eb10b2c50501aa4e1f293d6f4036",
+      "status": 202
+    },
+    {
+      "index": 77,
+      "latency_ms": 924.4012909985031,
+      "run_id": "4f71c749e5b4cf955fbd594003df624a96f5fb4b7a596bf7bbf9a5b6e60cf359",
+      "status": 202
+    },
+    {
+      "index": 78,
+      "latency_ms": 913.3717920012714,
+      "run_id": "bba0b254401db2fd3969e981bbd38239e24333b1dd4dbcb792197d81b69c4f6c",
+      "status": 202
+    },
+    {
+      "index": 79,
+      "latency_ms": 910.4599579986825,
+      "run_id": "06661168c81c4cf53d8184d4dc074e8159e4ff04a1f6928f6b67a1386105a67c",
+      "status": 202
+    },
+    {
+      "index": 80,
+      "latency_ms": 837.0619579982304,
+      "run_id": "f5e5f6c51cc294c7aa13742814ac7543e91bcaab8e50d24a3404d94ad59b6f27",
+      "status": 202
+    },
+    {
+      "index": 81,
+      "latency_ms": 912.3004159991979,
+      "run_id": "ef811ed15a3933d756caaf6fb5c4f438884fbef4c47cbf5959a48833ea88e95a",
+      "status": 202
+    },
+    {
+      "index": 82,
+      "latency_ms": 905.2617080014898,
+      "run_id": "232dcdab560d03196312fe86060049f491fd93df9ba7f08630b36b752c72d4a0",
+      "status": 202
+    },
+    {
+      "index": 83,
+      "latency_ms": 899.2485000017041,
+      "run_id": "1bf1c43ceb6c6567e09158e8c08ec3cde41404ef2c3d3bf1f158cd6438fc1fab",
+      "status": 202
+    },
+    {
+      "index": 84,
+      "latency_ms": 895.6719160014472,
+      "run_id": "96bfdc510fd78ed91759f64921d8c50d01efd2e46050f967b28b3f2118e0ef6f",
+      "status": 202
+    },
+    {
+      "index": 85,
+      "latency_ms": 926.023999996687,
+      "run_id": "08af3a3ac1facd0795a65009607556ffcabc5f0c66b862453cda0c4092166d0b",
+      "status": 202
+    },
+    {
+      "index": 86,
+      "latency_ms": 921.131625000271,
+      "run_id": "4b9a45fca20fe05d0d3e89c3257a702876f2875360467dbc351a99b2a1c0dd49",
+      "status": 202
+    },
+    {
+      "index": 87,
+      "latency_ms": 918.0190420011058,
+      "run_id": "04234b7dad566c000e418b721e3520ba9069d7a292f43504ca70cbeff4e28c0d",
+      "status": 202
+    },
+    {
+      "index": 88,
+      "latency_ms": 916.2316669971915,
+      "run_id": "0f890660f45aadd67e426614e8e67863f276c47b3bc39edc851247c13375fd4c",
+      "status": 202
+    },
+    {
+      "index": 89,
+      "latency_ms": 910.0641250006447,
+      "run_id": "017a6db8f2f62f7fee86ae01f2550b6e2c3a845e00ea8755137a7a775a6ddbc6",
+      "status": 202
+    },
+    {
+      "index": 90,
+      "latency_ms": 917.0788330011419,
+      "run_id": "4f8a91597f5ea886313cddf2cc10afc66ff8580f52159a2dd40df61818d1d1a2",
+      "status": 202
+    },
+    {
+      "index": 91,
+      "latency_ms": 904.852874999051,
+      "run_id": "ae7cb08fa3e8b3cc8e029f31040d853dfaefca51d6ebde51dd48f4f68fd2fbd6",
+      "status": 202
+    },
+    {
+      "index": 92,
+      "latency_ms": 897.5400419985817,
+      "run_id": "0f76b1fe9cf5b8e78f61b309d1f143a5673a47149175fb0619b273bd12b2265e",
+      "status": 202
+    },
+    {
+      "index": 93,
+      "latency_ms": 892.7611249964684,
+      "run_id": "b97335d7837ee405347c879ce55efcf008ae5c1b0a9c7119b45a68afd4eb25b9",
+      "status": 202
+    },
+    {
+      "index": 94,
+      "latency_ms": 899.0387919984641,
+      "run_id": "3a6c43de07bf59eeca31cf5b4c83b215c08729daee83f8ef260d1843c61ccb01",
+      "status": 202
+    },
+    {
+      "index": 95,
+      "latency_ms": 897.5310419991729,
+      "run_id": "83cb4105145b99242f14934d020c0eff6f343d49216246520f8571d8e8ab3094",
+      "status": 202
+    },
+    {
+      "index": 96,
+      "latency_ms": 890.1819169986993,
+      "run_id": "9f79af121ce6725ebb24017dda6601f8ff6035cc2ce0dfc7cfb89659b0a541bd",
+      "status": 202
+    },
+    {
+      "index": 97,
+      "latency_ms": 885.4011250004987,
+      "run_id": "0c3262ba6fb112f43be372b2287303c3106c0331c84b9b1db9050b61ac97bea8",
+      "status": 202
+    },
+    {
+      "index": 98,
+      "latency_ms": 881.0007910033164,
+      "run_id": "2981d2217ebba31a52440cf4ed9a73b3a8e1e86f7090bcfd382f447f337d0418",
+      "status": 202
+    },
+    {
+      "index": 99,
+      "latency_ms": 882.151583002269,
+      "run_id": "04a6bd4d5e62f80ccb883d465b0f7f8fff2c9c056949a9878a844d9765b99a1b",
+      "status": 202
+    }
+  ],
+  "started_at": "2026-10-30T14:04:12.352642+00:00",
+  "summary": {
+    "elapsed_seconds": 4.706796582999232,
+    "latency_202_ms": {
+      "max": 1223.8813749972905,
+      "mean": 854.994428720056,
+      "p50": 865.8379794997018,
+      "p95": 1172.43011904975,
+      "p99": 1221.6805228309022
+    },
+    "non_202_counts": {},
+    "requests": 100,
+    "success_202": 100,
+    "success_rate": 1.0,
+    "throughput_requests_per_second": 21.245872481763108
+  },
+  "warmup": {
+    "run_id": "4edd16e502046d9d77df2820a3d144fb31ea6f8d8c9a1f87e8b5ebba6a90b451",
+    "status": 202
+  }
+}

@@ -155,6 +155,32 @@ is reserved for one reviewed example run.
 Mutation-test results for the accepted-means-durable assertions are recorded in
 `services/ingestion/failure_simulation/MUTATION_CHECK.md`.
 
+### Ingestion load test
+
+The async load driver performs a discarded warm-up, then records each measured
+request's status, latency, and run ID. It writes JSON results and a Markdown
+summary; a smoke run is available with:
+
+```bash
+make load-test
+```
+
+For controlled measurements, keep the Compose stack healthy and run, for
+example:
+
+```bash
+python tools/load/ingestion_load.py \
+  --requests 500 --concurrency 20 --report-size small \
+  --label small-concurrency-20 --output-dir docs/evidence/ingestion-load
+```
+
+The `--report-size` options are `small` (10 synthetic testcases) and `large`
+(5,000 synthetic testcases). Results also include outbox metrics, machine and
+container facts, and `docker stats` samples. Use `--broker-down` to have the
+tool stop RabbitMQ for the measured phase, restore it, and record the time for
+pending rows to drain. Do not treat results from one laptop as production
+capacity figures.
+
 The workflow runs automatically on pushes and pull requests, or manually from
 the repository's **Actions → Ingestion tests** page. Each workflow run includes
 a per-test-case pass/fail summary. Download the test files from **Actions →
