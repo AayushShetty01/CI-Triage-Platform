@@ -7,6 +7,10 @@ and provide actionable insights through APIs and dashboards.
 
 ## Ingestion
 
+[![Ingestion tests](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-tests.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-tests.yml)
+[![Ingestion failure tests](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-tests.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-tests.yml)
+[![Ingestion failure simulation](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-simulation.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-simulation.yml)
+
 Ingestion accepts JUnit XML reports up to `MAX_REPORT_SIZE_BYTES` (10 MiB by
 default), stores each run and its `RunReceived` event in PostgreSQL in one
 transaction, and relays events asynchronously to RabbitMQ. Duplicate
@@ -108,10 +112,21 @@ python -m pytest -c services/ingestion/pytest.ini \
   services/ingestion/tests/test_contracts.py -q
 ```
 
-  The test cases are in
-  [`test_contracts.py`](services/ingestion/tests/test_contracts.py) and the
-  other Ingestion tests are under
-  [`services/ingestion/tests/`](services/ingestion/tests/).
+The test cases are in
+[`test_contracts.py`](services/ingestion/tests/test_contracts.py) and the
+other Ingestion tests are under
+[`services/ingestion/tests/`](services/ingestion/tests/).
+
+The separate controlled simulation uses a mock payment application to produce
+a sample JUnit report; it does not stop or fault the real Compose services:
+
+```bash
+python -m pytest -c services/ingestion/pytest.ini \
+  services/ingestion/failure_simulation/test_ingestion_failures.py
+```
+
+Its results are uploaded by the
+[Ingestion failure simulation workflow](.github/workflows/ingestion-failure-simulation.yml).
 
 The real failure-injection suite is marked `failure` and excluded from the
 default run. It stops, starts, or kills Docker Compose services and always
