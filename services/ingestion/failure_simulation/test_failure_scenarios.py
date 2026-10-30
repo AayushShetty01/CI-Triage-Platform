@@ -31,7 +31,10 @@ def failure_stack(request: pytest.FixtureRequest) -> Iterator[dict[str, Any]]:
     for service in ("postgres", "rabbitmq", "ingestion"):
         compose.wait_healthy(service)
 
-    ingestion = IngestionClient()
+    ingestion = IngestionClient(
+        api_key=compose.container_environment("ingestion", "INGESTION_API_KEY"),
+        internal_api_key=compose.container_environment("ingestion", "INTERNAL_API_KEY"),
+    )
     database = DatabaseHelper(compose.database_url())
     rabbitmq = RabbitMQHelper(compose.rabbitmq_url())
     rabbitmq.prepare()

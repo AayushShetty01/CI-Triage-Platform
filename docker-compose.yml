@@ -43,6 +43,8 @@ services:
       RELAY_BACKOFF_CAP_SECONDS: ${RELAY_BACKOFF_CAP_SECONDS:-30}
       OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
       INGESTION_RETRY_AFTER_SECONDS: ${INGESTION_RETRY_AFTER_SECONDS:-5}
+      INGESTION_API_KEY: ${INGESTION_API_KEY:-dev-ingestion-key-change-me}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
     depends_on:
       postgres:
         condition: service_healthy

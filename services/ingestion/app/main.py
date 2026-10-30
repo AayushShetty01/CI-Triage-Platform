@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import hmac
 import io
 import logging
 import os
@@ -44,6 +45,11 @@ ingest_latency = Histogram(
     "ingest_latency_seconds",
     "Duration of ingestion HTTP requests.",
     ("method", "path"),
+)
+ingest_auth_failures = Counter(
+    "ingest_auth_failures_total",
+    "Number of failed Ingestion API key checks.",
+    ("endpoint",),
 )
 outbox_pending = Gauge(
     "outbox_pending",
@@ -283,6 +289,18 @@ def create_app(
     enable_relay: bool = True,
     max_report_size_bytes: int | None = None,
 ) -> FastAPI:
+    ingestion_api_key = os.getenv("INGESTION_API_KEY")
+    internal_api_key = os.getenv("INTERNAL_API_KEY")
+    if (
+        not ingestion_api_key
+        or not ingestion_api_key.strip()
+        or not internal_api_key
+        or not internal_api_key.strip()
+    ):
+        raise RuntimeError(
+            "INGESTION_API_KEY and INTERNAL_API_KEY must both be set to non-empty values"
+        )
+
     engine = _create_engine(database_url or os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL))
     broker_url = rabbitmq_url or os.getenv("RABBITMQ_URL", DEFAULT_RABBITMQ_URL)
     poll_interval_seconds = float(
@@ -339,6 +357,8 @@ def create_app(
     application.state.engine = engine
     application.state.max_report_size_bytes = max_report_size_bytes
     application.state.retry_after_seconds = retry_after_seconds
+    application.state.ingestion_api_key = ingestion_api_key
+    application.state.internal_api_key = internal_api_key
 
     @application.middleware("http")
     async def track_ingestion_requests(request: Request, call_next):
@@ -373,6 +393,14 @@ def create_app(
 
     @application.post("/runs", status_code=202)
     async def submit_run(request: Request) -> dict[str, str]:
+        supplied_api_key = request.headers.get("x-api-key", "")
+        if not hmac.compare_digest(supplied_api_key, request.app.state.ingestion_api_key):
+            ingest_auth_failures.labels(endpoint="/runs").inc()
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or missing API key",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
         raw_xml, commit_sha, branch = await _extract_submission(
             request,
             request.app.state.max_report_size_bytes,
@@ -401,6 +429,17 @@ def create_app(
 
     @application.get("/internal/runs/{run_id}/raw")
     def get_raw_run(run_id: str, request: Request) -> Response:
+        supplied_internal_key = request.headers.get("x-internal-key", "")
+        if not hmac.compare_digest(
+            supplied_internal_key,
+            request.app.state.internal_api_key,
+        ):
+            ingest_auth_failures.labels(endpoint="/internal/runs/{run_id}/raw").inc()
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or missing API key",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
         try:
             with request.app.state.engine.connect() as connection:
                 raw_xml = connection.execute(

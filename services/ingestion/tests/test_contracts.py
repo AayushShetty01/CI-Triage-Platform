@@ -19,6 +19,7 @@ SAMPLES_DIR = CONTRACTS_DIR / "samples"
 SCHEMA = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
 VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
 JUNIT_XML = b'<testsuite name="contract"><testcase name="passes" /></testsuite>'
+INGESTION_API_KEY = "test-ingestion-api-key"
 
 
 @pytest.fixture
@@ -64,6 +65,7 @@ def test_event_from_post_and_outbox_validates(contract_client) -> None:
         "/runs",
         content=JUNIT_XML,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": "application/xml",
             "X-Commit-Sha": "contract-commit",
             "X-Branch": "contract",
@@ -83,6 +85,7 @@ def test_legacy_outbox_event_validates_after_relay_transformation(contract_clien
         "/runs",
         content=JUNIT_XML,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": "application/xml",
             "X-Commit-Sha": "legacy-contract-commit",
             "X-Branch": "contract",

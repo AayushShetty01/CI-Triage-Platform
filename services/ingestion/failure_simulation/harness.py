@@ -148,9 +148,15 @@ class ComposeHarness:
 
 
 class IngestionClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:8001") -> None:
+    def __init__(
+        self,
+        api_key: str,
+        internal_api_key: str,
+        base_url: str = "http://127.0.0.1:8001",
+    ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.headers: dict[str, str] = {}
+        self.headers = {"X-API-Key": api_key}
+        self.internal_headers = {"X-Internal-Key": internal_api_key}
         self.client = httpx.Client(base_url=self.base_url, timeout=15)
 
     def health_status(self) -> int:
@@ -179,7 +185,10 @@ class IngestionClient:
         )
 
     def get_raw_report(self, run_id: str) -> bytes:
-        response = self.client.get(f"/internal/runs/{run_id}/raw")
+        response = self.client.get(
+            f"/internal/runs/{run_id}/raw",
+            headers=self.internal_headers,
+        )
         response.raise_for_status()
         return response.content
 

@@ -15,6 +15,8 @@ jobs:
     env:
       INGESTION_TEST_DATABASE_URL: postgresql+psycopg://triage_admin:triage_admin_ci@localhost:5432/ingestion_test
       INGESTION_TEST_RABBITMQ_URL: amqp://triage:triage_ci@localhost:5672/
+      INGESTION_API_KEY: test-ingestion-api-key
+      INTERNAL_API_KEY: test-internal-api-key
     services:
       postgres:
         image: postgres:16

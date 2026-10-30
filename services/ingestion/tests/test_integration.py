@@ -40,6 +40,8 @@ REALISTIC_JUNIT_XML = b"""<?xml version="1.0"?>
   </testsuite>
 </testsuites>
 """
+INGESTION_API_KEY = "test-ingestion-api-key"
+INTERNAL_API_KEY = "test-internal-api-key"
 
 
 def _prepare_postgres_database(database_url: str) -> Engine:
@@ -165,6 +167,7 @@ def test_upload_persists_report_and_publishes_confirmed_event(
                 "/runs",
                 content=REALISTIC_JUNIT_XML,
                 headers={
+                    "X-API-Key": INGESTION_API_KEY,
                     "Content-Type": "application/xml",
                     "X-Commit-Sha": commit_sha,
                     "X-Branch": "feature/checkout",
@@ -177,6 +180,7 @@ def test_upload_persists_report_and_publishes_confirmed_event(
                 "/runs",
                 content=REALISTIC_JUNIT_XML,
                 headers={
+                    "X-API-Key": INGESTION_API_KEY,
                     "Content-Type": "application/xml",
                     "X-Commit-Sha": commit_sha,
                     "X-Branch": "feature/checkout",
@@ -185,7 +189,10 @@ def test_upload_persists_report_and_publishes_confirmed_event(
             assert duplicate.status_code == 202
             assert duplicate.json()["run_id"] == run_id
 
-            raw_response = client.get(f"/internal/runs/{run_id}/raw")
+            raw_response = client.get(
+                f"/internal/runs/{run_id}/raw",
+                headers={"X-Internal-Key": INTERNAL_API_KEY},
+            )
             assert raw_response.status_code == 200
             assert raw_response.content == REALISTIC_JUNIT_XML
 

@@ -423,6 +423,7 @@ def test_simulated_failures_are_accepted_and_preserved(
         "/runs",
         content=report,
         headers={
+            "X-API-Key": "test-ingestion-api-key",
             "Content-Type": "application/xml",
             "X-Commit-Sha": "failure-simulation-commit",
             "X-Branch": "ci/failure-simulation",
@@ -432,7 +433,10 @@ def test_simulated_failures_are_accepted_and_preserved(
     assert response.json()["status"] == "accepted"
     run_id = response.json()["run_id"]
 
-    raw_response = ingestion_client.get(f"/internal/runs/{run_id}/raw")
+    raw_response = ingestion_client.get(
+        f"/internal/runs/{run_id}/raw",
+        headers={"X-Internal-Key": "test-internal-api-key"},
+    )
     assert raw_response.status_code == 200
     assert raw_response.content == report
 

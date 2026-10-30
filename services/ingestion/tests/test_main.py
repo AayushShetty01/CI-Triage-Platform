@@ -21,6 +21,8 @@ JUNIT_XML = b"""<?xml version="1.0"?>
   <testcase classname="example.Sample" name="passes" />
 </testsuite>
 """
+INGESTION_API_KEY = "test-ingestion-api-key"
+INTERNAL_API_KEY = "test-internal-api-key"
 
 
 @pytest.fixture
@@ -53,6 +55,7 @@ def _raw_upload(
         "/runs",
         content=body,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": "application/xml",
             "X-Commit-Sha": commit_sha,
             "X-Branch": branch,
@@ -74,6 +77,120 @@ def test_health_and_metrics_endpoints(ingestion_client) -> None:
     assert "outbox_pending" in metrics_response.text
     assert "outbox_oldest_pending_seconds" in metrics_response.text
     assert "relay_consecutive_failures" in metrics_response.text
+    assert "ingest_auth_failures_total" in metrics_response.text
+
+
+@pytest.mark.parametrize("endpoint", ["upload", "raw"])
+@pytest.mark.parametrize("key_state", ["missing", "wrong"])
+def test_protected_endpoints_reject_missing_or_wrong_keys(
+    ingestion_client,
+    endpoint: str,
+    key_state: str,
+) -> None:
+    client, _ = ingestion_client
+    if endpoint == "upload":
+        headers = {
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "auth-check",
+            "X-Branch": "main",
+        }
+        if key_state == "missing":
+            headers.pop("X-API-Key")
+        else:
+            headers["X-API-Key"] = "incorrect-key"
+        response = client.post("/runs", content=JUNIT_XML, headers=headers)
+    else:
+        headers = (
+            {"X-Internal-Key": "incorrect-key"}
+            if key_state == "wrong"
+            else {}
+        )
+        response = client.get(
+            f"/internal/runs/{'1' * 64}/raw",
+            headers=headers,
+        )
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "ApiKey"
+    assert response.json() == {"detail": "Invalid or missing API key"}
+
+
+def test_correct_keys_allow_upload_and_raw_retrieval(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    upload = _raw_upload(client)
+    assert upload.status_code == 202
+    raw = client.get(
+        f"/internal/runs/{upload.json()['run_id']}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
+    assert raw.status_code == 200
+    assert raw.content == JUNIT_XML
+
+
+def test_wrong_key_precedes_oversized_upload_validation(ingestion_client) -> None:
+    client, _ = ingestion_client
+
+    response = client.post(
+        "/runs",
+        content=b"x" * 2048,
+        headers={
+            "X-API-Key": "incorrect-key",
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "oversized",
+            "X-Branch": "main",
+        },
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize("missing_key", ["INGESTION_API_KEY", "INTERNAL_API_KEY"])
+@pytest.mark.parametrize("key_state", ["missing", "empty"])
+def test_startup_requires_both_nonempty_keys(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    missing_key: str,
+    key_state: str,
+) -> None:
+    monkeypatch.setenv("INGESTION_API_KEY", INGESTION_API_KEY)
+    monkeypatch.setenv("INTERNAL_API_KEY", INTERNAL_API_KEY)
+    if key_state == "missing":
+        monkeypatch.delenv(missing_key)
+    else:
+        monkeypatch.setenv(missing_key, "")
+
+    with pytest.raises(RuntimeError, match="must both be set"):
+        create_app(database_url=f"sqlite:///{tmp_path / 'missing-key.db'}")
+
+
+def test_authentication_failures_do_not_expose_keys(
+    ingestion_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client, _ = ingestion_client
+    secret = "never-expose-this-key-value"
+
+    upload_response = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": secret,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "secret-check",
+            "X-Branch": "main",
+        },
+    )
+    raw_response = client.get(
+        f"/internal/runs/{'1' * 64}/raw",
+        headers={"X-Internal-Key": secret},
+    )
+
+    assert upload_response.status_code == raw_response.status_code == 401
+    assert secret not in upload_response.text
+    assert secret not in raw_response.text
+    assert all(secret not in record.getMessage() for record in caplog.records)
 
 
 def test_metrics_endpoint_stays_available_when_database_is_unavailable(
@@ -179,7 +296,10 @@ def test_raw_report_returns_503_with_retry_after_when_database_is_unavailable(
         raise SQLAlchemyError("database unavailable")
 
     monkeypatch.setattr(engine, "connect", database_unavailable)
-    response = client.get(f"/internal/runs/{'1' * 64}/raw")
+    response = client.get(
+        f"/internal/runs/{'1' * 64}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
 
     assert response.status_code == 503
     assert response.headers["retry-after"] == str(client.app.state.retry_after_seconds)
@@ -288,7 +408,10 @@ def test_multiple_suites_and_failure_details_are_preserved(ingestion_client) -> 
     response = _raw_upload(client, body=report)
 
     assert response.status_code == 202
-    raw_response = client.get(f"/internal/runs/{response.json()['run_id']}/raw")
+    raw_response = client.get(
+        f"/internal/runs/{response.json()['run_id']}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
     assert raw_response.status_code == 200
     assert raw_response.content == report
 
@@ -300,6 +423,7 @@ def test_multipart_report_submission(ingestion_client) -> None:
         "/runs",
         data={"commit_sha": "abc123", "branch": "feature/test"},
         files={"file": ("junit.xml", JUNIT_XML, "application/xml")},
+        headers={"X-API-Key": INGESTION_API_KEY},
     )
 
     assert response.status_code == 202
@@ -312,7 +436,11 @@ def test_missing_metadata_is_rejected(ingestion_client) -> None:
     response = client.post(
         "/runs",
         content=JUNIT_XML,
-        headers={"Content-Type": "application/xml", "X-Commit-Sha": "abc123"},
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "abc123",
+        },
     )
 
     assert response.status_code == 400
@@ -325,7 +453,11 @@ def test_missing_commit_sha_is_rejected(ingestion_client) -> None:
     response = client.post(
         "/runs",
         content=JUNIT_XML,
-        headers={"Content-Type": "application/xml", "X-Branch": "main"},
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Branch": "main",
+        },
     )
 
     assert response.status_code == 400
@@ -347,6 +479,7 @@ def test_alternate_xml_content_types_are_accepted(
         "/runs",
         content=JUNIT_XML,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": content_type,
             "X-Commit-Sha": "alternate-content-type",
             "X-Branch": "main",
@@ -354,7 +487,10 @@ def test_alternate_xml_content_types_are_accepted(
     )
 
     assert response.status_code == 202
-    raw_response = client.get(f"/internal/runs/{response.json()['run_id']}/raw")
+    raw_response = client.get(
+        f"/internal/runs/{response.json()['run_id']}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
     assert raw_response.status_code == 200
     assert raw_response.content == JUNIT_XML
 
@@ -366,7 +502,7 @@ def test_metadata_can_be_supplied_as_query_parameters(ingestion_client) -> None:
         "/runs",
         params={"commit_sha": "query-commit", "branch": "query-branch"},
         content=JUNIT_XML,
-        headers={"Content-Type": "application/xml"},
+        headers={"X-API-Key": INGESTION_API_KEY, "Content-Type": "application/xml"},
     )
 
     assert response.status_code == 202
@@ -380,10 +516,14 @@ def test_multipart_report_field_alias_is_accepted(ingestion_client) -> None:
         "/runs",
         data={"commit_sha": "report-alias", "branch": "main"},
         files={"report": ("junit.xml", JUNIT_XML, "application/xml")},
+        headers={"X-API-Key": INGESTION_API_KEY},
     )
 
     assert response.status_code == 202
-    raw_response = client.get(f"/internal/runs/{response.json()['run_id']}/raw")
+    raw_response = client.get(
+        f"/internal/runs/{response.json()['run_id']}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
     assert raw_response.status_code == 200
     assert raw_response.content == JUNIT_XML
 
@@ -395,6 +535,7 @@ def test_unsupported_content_type_is_rejected(ingestion_client) -> None:
         "/runs",
         content=JUNIT_XML,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": "application/json",
             "X-Commit-Sha": "unsupported-content",
             "X-Branch": "main",
@@ -478,7 +619,10 @@ def test_internal_raw_endpoint_returns_stored_xml(ingestion_client) -> None:
     client, _ = ingestion_client
     run_id = _raw_upload(client).json()["run_id"]
 
-    response = client.get(f"/internal/runs/{run_id}/raw")
+    response = client.get(
+        f"/internal/runs/{run_id}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
 
     assert response.status_code == 200
     assert response.content == JUNIT_XML
@@ -488,7 +632,10 @@ def test_internal_raw_endpoint_returns_stored_xml(ingestion_client) -> None:
 def test_internal_raw_endpoint_returns_404_for_unknown_run(ingestion_client) -> None:
     client, _ = ingestion_client
 
-    response = client.get(f"/internal/runs/{'0' * 64}/raw")
+    response = client.get(
+        f"/internal/runs/{'0' * 64}/raw",
+        headers={"X-Internal-Key": INTERNAL_API_KEY},
+    )
 
     assert response.status_code == 404
 
@@ -649,6 +796,7 @@ def test_relay_marks_event_published_only_after_confirmation(ingestion_client) -
         "/runs",
         content=JUNIT_XML,
         headers={
+            "X-API-Key": INGESTION_API_KEY,
             "Content-Type": "application/xml",
             "X-Commit-Sha": "0123456789abcdef",
             "X-Branch": "main",

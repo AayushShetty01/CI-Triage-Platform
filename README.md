@@ -20,6 +20,7 @@ The service listens on port `8001`. Submit raw XML using headers:
 ```bash
 curl -X POST http://localhost:8001/runs \
   -H 'Content-Type: application/xml' \
+  -H 'X-API-Key: dev-ingestion-key-change-me' \
   -H 'X-Commit-Sha: 0123456789abcdef' \
   -H 'X-Branch: main' \
   --data-binary @junit.xml
@@ -27,9 +28,15 @@ curl -X POST http://localhost:8001/runs \
 
 Multipart uploads are also accepted, using `file` (or `report`), `commit_sha`,
 and `branch` fields. Both formats return HTTP `202` with the stable `run_id`.
-Parser retrieves stored report bytes from
-`GET /internal/runs/{run_id}/raw`. Check `http://localhost:8001/health` for the
-health response and `http://localhost:8001/metrics` for Prometheus metrics.
+`POST /runs` requires `X-API-Key` matching `INGESTION_API_KEY`.
+`GET /internal/runs/{run_id}/raw` requires `X-Internal-Key` matching
+`INTERNAL_API_KEY`. The Parser service must send `X-Internal-Key` and read its
+`INGESTION_BASE_URL` and `INTERNAL_API_KEY` configuration to retrieve reports.
+`/health` and `/metrics` remain open for health checks and Prometheus scraping.
+The development keys are in `.env.example`; override them outside development.
+
+Authentication is deliberately minimal (static shared keys), not a production
+design.
 
 The relay publishes persistent messages to the durable `triage.events` topic
 exchange with publisher confirms. A pending event is marked published only
