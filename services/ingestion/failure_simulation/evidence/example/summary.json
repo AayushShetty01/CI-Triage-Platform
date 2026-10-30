@@ -1,0 +1,96 @@
+{
+  "assertions": [
+    {
+      "actual": 20,
+      "assertion": "all concurrent uploads accepted",
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "actual": 1,
+      "assertion": "all uploads return one run ID",
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "actual": 1,
+      "assertion": "duplicate event count",
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "actual": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "assertion": "published event run ID",
+      "expected": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "passed": true
+    }
+  ],
+  "ended_at": "2026-10-30T12:09:18.095530+00:00",
+  "measured_counts": {
+    "cleanup_errors": [],
+    "drained_message_count": 1,
+    "duplicate_row_counts": {
+      "outbox": 1,
+      "runs": 1
+    },
+    "final_database_counts": {
+      "outbox": 69,
+      "pending": 0,
+      "runs": 69
+    },
+    "http_statuses": [
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202,
+      202
+    ],
+    "initial_database_counts": {
+      "outbox": 68,
+      "pending": 0,
+      "runs": 68
+    },
+    "request_count": 20,
+    "returned_run_ids": [
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd"
+    ]
+  },
+  "passed": true,
+  "queue_name": "ingestion-failure-af711048df01419ca363096241b99889",
+  "scenario": "concurrent_duplicates",
+  "started_at": "2026-10-30T12:09:12.671148+00:00"
+}

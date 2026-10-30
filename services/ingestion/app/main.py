@@ -49,6 +49,10 @@ relay_publish_errors = Counter(
     "relay_publish_errors_total",
     "Number of failed outbox relay iterations.",
 )
+relay_consecutive_failures = Gauge(
+    "relay_consecutive_failures",
+    "Number of consecutive failed outbox relay iterations.",
+)
 
 DEFAULT_MAX_REPORT_SIZE_BYTES = 10 * 1024 * 1024
 DEFAULT_DATABASE_URL = (
@@ -231,6 +235,7 @@ def _store_run(
             "commit_sha": commit_sha,
             "branch": branch,
             "received_at": received_at.isoformat(),
+            "raw_ref": f"/internal/runs/{run_id}/raw",
         },
     }
     with engine.begin() as connection:
@@ -270,14 +275,27 @@ def create_app(
 ) -> FastAPI:
     engine = _create_engine(database_url or os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL))
     broker_url = rabbitmq_url or os.getenv("RABBITMQ_URL", DEFAULT_RABBITMQ_URL)
-    poll_interval_seconds = float(os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"))
+    poll_interval_seconds = float(
+        os.getenv(
+            "RELAY_POLL_INTERVAL_SECONDS",
+            os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"),
+        )
+    )
+    backoff_cap_seconds = float(os.getenv("RELAY_BACKOFF_CAP_SECONDS", "30"))
+    retry_after_seconds = int(os.getenv("INGESTION_RETRY_AFTER_SECONDS", "5"))
     batch_size = int(os.getenv("OUTBOX_BATCH_SIZE", "50"))
     if max_report_size_bytes is None:
         max_report_size_bytes = int(
             os.getenv("MAX_REPORT_SIZE_BYTES", str(DEFAULT_MAX_REPORT_SIZE_BYTES))
         )
-    if max_report_size_bytes < 1 or poll_interval_seconds <= 0 or batch_size < 1:
-        raise ValueError("Report size, relay poll interval, and batch size must be positive")
+    if (
+        max_report_size_bytes < 1
+        or poll_interval_seconds <= 0
+        or backoff_cap_seconds <= 0
+        or retry_after_seconds <= 0
+        or batch_size < 1
+    ):
+        raise ValueError("Report size, relay intervals, retry-after, and batch size must be positive")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
@@ -291,6 +309,8 @@ def create_app(
                     batch_size,
                     outbox_pending,
                     relay_publish_errors,
+                    relay_consecutive_failures,
+                    backoff_cap_seconds,
                 )
             )
         try:
@@ -307,6 +327,7 @@ def create_app(
     application = FastAPI(title="CI Triage Platform - Ingestion", lifespan=lifespan)
     application.state.engine = engine
     application.state.max_report_size_bytes = max_report_size_bytes
+    application.state.retry_after_seconds = retry_after_seconds
 
     @application.middleware("http")
     async def track_ingestion_requests(request: Request, call_next):
@@ -346,7 +367,11 @@ def create_app(
             )
         except SQLAlchemyError as exc:
             logger.exception("Failed to store ingested run")
-            raise HTTPException(status_code=503, detail="Ingestion storage is unavailable") from exc
+            raise HTTPException(
+                status_code=503,
+                detail="Ingestion storage is unavailable",
+                headers={"Retry-After": str(request.app.state.retry_after_seconds)},
+            ) from exc
         outbox_pending.set(pending_count)
         return {"run_id": run_id, "status": "accepted"}
 
@@ -359,7 +384,11 @@ def create_app(
                 ).scalar_one_or_none()
         except SQLAlchemyError as exc:
             logger.exception("Failed to retrieve raw report")
-            raise HTTPException(status_code=503, detail="Ingestion storage is unavailable") from exc
+            raise HTTPException(
+                status_code=503,
+                detail="Ingestion storage is unavailable",
+                headers={"Retry-After": str(request.app.state.retry_after_seconds)},
+            ) from exc
         if raw_xml is None:
             raise HTTPException(status_code=404, detail="Run not found")
         return Response(

@@ -1,6 +1,8 @@
 import asyncio
 import json
 import logging
+import random
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,6 +15,16 @@ from app.database import outbox
 logger = logging.getLogger(__name__)
 EXCHANGE_NAME = "triage.events"
 ROUTING_KEYS = {"RunReceived": "run.received"}
+
+
+def _retry_delay(
+    base_seconds: float,
+    cap_seconds: float,
+    attempt: int,
+    random_uniform: Callable[[float, float], float],
+) -> float:
+    upper_bound = min(cap_seconds, base_seconds * 2**attempt)
+    return random_uniform(0.0, upper_bound)
 
 
 async def publish_pending_batch(
@@ -38,12 +50,16 @@ async def publish_pending_batch(
             routing_key = ROUTING_KEYS.get(event["event_type"])
             if routing_key is None:
                 raise ValueError(f"Unsupported outbox event type: {event['event_type']}")
+            payload = dict(event["payload"])
+            payload_body = dict(payload.get("payload", {}))
+            payload_body["raw_ref"] = f"/internal/runs/{payload['run_id']}/raw"
+            payload["payload"] = payload_body
             await exchange.publish(
                 aio_pika.Message(
-                    body=json.dumps(event["payload"]).encode("utf-8"),
+                    body=json.dumps(payload).encode("utf-8"),
                     content_type="application/json",
                     delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                    message_id=event["payload"]["event_id"],
+                    message_id=payload["event_id"],
                 ),
                 routing_key=routing_key,
                 mandatory=True,
@@ -72,26 +88,44 @@ async def run_outbox_relay(
     batch_size: int,
     pending_gauge: Any,
     publish_errors: Any,
+    consecutive_failures_gauge: Any,
+    backoff_cap_seconds: float = 30.0,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    random_uniform: Callable[[float, float], float] = random.uniform,
 ) -> None:
     connection: aio_pika.abc.AbstractRobustConnection | None = None
+    attempt = 0
     try:
         while True:
+            delay = poll_interval_seconds
             try:
-                pending_gauge.set(count_pending(engine))
-                if connection is None or connection.is_closed:
-                    connection = await aio_pika.connect_robust(rabbitmq_url)
-                channel = await connection.channel(publisher_confirms=True)
-                exchange = await channel.declare_exchange(
-                    EXCHANGE_NAME,
-                    aio_pika.ExchangeType.TOPIC,
-                    durable=True,
-                )
-                await publish_pending_batch(engine, exchange, batch_size)
-                pending_gauge.set(count_pending(engine))
-                await channel.close()
+                pending_count = count_pending(engine)
+                pending_gauge.set(pending_count)
+                if pending_count:
+                    if connection is None or connection.is_closed:
+                        connection = await aio_pika.connect_robust(rabbitmq_url)
+                    channel = await connection.channel(publisher_confirms=True)
+                    exchange = await channel.declare_exchange(
+                        EXCHANGE_NAME,
+                        aio_pika.ExchangeType.TOPIC,
+                        durable=True,
+                    )
+                    await publish_pending_batch(engine, exchange, batch_size)
+                    attempt = 0
+                    consecutive_failures_gauge.set(0)
+                    pending_gauge.set(count_pending(engine))
+                    await channel.close()
             except asyncio.CancelledError:
                 raise
             except Exception:
+                delay = _retry_delay(
+                    poll_interval_seconds,
+                    backoff_cap_seconds,
+                    attempt,
+                    random_uniform,
+                )
+                attempt += 1
+                consecutive_failures_gauge.set(attempt)
                 publish_errors.inc()
                 logger.exception("Outbox relay iteration failed; pending events will be retried")
                 if connection is not None and not connection.is_closed:
@@ -100,7 +134,7 @@ async def run_outbox_relay(
                     except Exception:
                         logger.exception("Failed to close RabbitMQ connection after relay failure")
                 connection = None
-            await asyncio.sleep(poll_interval_seconds)
+            await sleep(delay)
     finally:
         if connection is not None and not connection.is_closed:
             await connection.close()

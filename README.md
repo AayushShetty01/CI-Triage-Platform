@@ -42,7 +42,11 @@ Compose initializes a dedicated `ingestion` database role and schema on the
 first start. Set `INGESTION_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
 `RABBITMQ_USER`, and `RABBITMQ_PASSWORD` in the environment to override local
 development credentials. `MAX_REPORT_SIZE_BYTES`, `OUTBOX_POLL_INTERVAL_SECONDS`,
-and `OUTBOX_BATCH_SIZE` configure upload and relay limits.
+`RELAY_POLL_INTERVAL_SECONDS`, `RELAY_BACKOFF_CAP_SECONDS`,
+`INGESTION_RETRY_AFTER_SECONDS`, and `OUTBOX_BATCH_SIZE` configure upload,
+relay retry, and client retry behavior. The relay uses full-jitter exponential
+backoff on errors; the legacy `OUTBOX_POLL_INTERVAL_SECONDS` remains the
+fallback when `RELAY_POLL_INTERVAL_SECONDS` is unset.
 
 To run the fast tests locally from the repository root:
 
@@ -103,6 +107,26 @@ suite. The generated `artifacts/failure-simulation-junit.xml`,
 selectable **Ingestion failure simulation** workflow
 (`workflow_dispatch`). The summary identifies the failures as controlled
 payment-application simulations.
+
+### Real Ingestion failure tests
+
+The `failure`-marked scenarios exercise the Docker Compose Ingestion stack
+against real PostgreSQL and RabbitMQ containers. They are excluded from normal
+pytest runs because scenarios stop and start services. Install the Ingestion
+development requirements, Docker Compose, and start with a clean, healthy
+Compose environment; then run:
+
+```bash
+make failure-tests
+```
+
+The current real scenarios cover RabbitMQ downtime and recovery, PostgreSQL
+downtime and recovery without restarting Ingestion, and concurrent duplicate
+uploads. Each run writes measured `summary.json`, per-service timestamped
+Compose logs, and drained RabbitMQ envelopes under
+`services/ingestion/failure_simulation/evidence/<scenario>/`. Generated
+evidence is git-ignored; `services/ingestion/failure_simulation/evidence/example/`
+is reserved for one reviewed example run.
 
 The workflow runs automatically on pushes and pull requests, or manually from
 the repository's **Actions → Ingestion tests** page. Each workflow run includes

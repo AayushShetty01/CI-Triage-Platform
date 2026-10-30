@@ -3,15 +3,18 @@ import json
 import os
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterator
+from datetime import datetime, timezone
 from pathlib import Path
+from threading import Event
 
 import aio_pika
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, insert, select
 from sqlalchemy.engine import Engine
 
 from app.database import outbox, runs
@@ -30,15 +33,7 @@ REALISTIC_JUNIT_XML = b"""<?xml version="1.0"?>
 """
 
 
-@pytest.fixture(scope="session")
-def integration_services() -> Iterator[tuple[Engine, str, str]]:
-    database_url = os.getenv("INGESTION_TEST_DATABASE_URL")
-    rabbitmq_url = os.getenv("INGESTION_TEST_RABBITMQ_URL")
-    if not database_url or not rabbitmq_url:
-        pytest.skip("Set integration database and RabbitMQ URLs to run service integration tests")
-    assert database_url is not None
-    assert rabbitmq_url is not None
-
+def _prepare_postgres_database(database_url: str) -> Engine:
     engine = create_engine(database_url, pool_pre_ping=True)
     with engine.begin() as connection:
         connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ingestion")
@@ -55,7 +50,30 @@ def integration_services() -> Iterator[tuple[Engine, str, str]]:
             os.environ.pop("DATABASE_URL", None)
         else:
             os.environ["DATABASE_URL"] = previous_database_url
+    return engine
 
+
+@pytest.fixture(scope="session")
+def postgres_engine() -> Iterator[Engine]:
+    database_url = os.getenv("INGESTION_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("Set INGESTION_TEST_DATABASE_URL to run PostgreSQL integration tests")
+
+    engine = _prepare_postgres_database(database_url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def integration_services() -> Iterator[tuple[Engine, str, str]]:
+    database_url = os.getenv("INGESTION_TEST_DATABASE_URL")
+    rabbitmq_url = os.getenv("INGESTION_TEST_RABBITMQ_URL")
+    if not database_url or not rabbitmq_url:
+        pytest.skip("Set integration database and RabbitMQ URLs to run service integration tests")
+    assert database_url is not None
+    assert rabbitmq_url is not None
+
+    engine = _prepare_postgres_database(database_url)
     yield engine, database_url, rabbitmq_url
     engine.dispose()
 
@@ -167,6 +185,7 @@ def test_upload_persists_report_and_publishes_confirmed_event(
             assert event["run_id"] == run_id
             assert event["payload"]["commit_sha"] == commit_sha
             assert event["payload"]["branch"] == "feature/checkout"
+            assert event["payload"]["raw_ref"] == f"/internal/runs/{run_id}/raw"
 
             with engine.connect() as connection:
                 stored_run = connection.execute(
@@ -183,3 +202,69 @@ def test_upload_persists_report_and_publishes_confirmed_event(
             assert stored_events[0]["published_at"] is not None
     finally:
         asyncio.run(_delete_event_queue(rabbitmq_url, queue_name))
+
+
+def test_postgres_skip_locked_prevents_overlapping_relay_batches(
+    postgres_engine: Engine,
+) -> None:
+    engine = postgres_engine
+    now = datetime.now(timezone.utc)
+    test_run_ids = [uuid.uuid4().hex for _ in range(10)]
+    with engine.begin() as connection:
+        row_ids = connection.execute(
+            insert(outbox)
+            .values(
+                [
+                    {
+                        "event_type": "RunReceived",
+                        "payload": {
+                            "event_id": str(uuid.uuid4()),
+                            "event_type": "RunReceived",
+                            "occurred_at": now.isoformat(),
+                            "schema_version": "1.0",
+                            "run_id": run_id,
+                            "payload": {},
+                        },
+                        "created_at": now,
+                        "published_at": None,
+                    }
+                    for run_id in test_run_ids
+                ]
+            )
+            .returning(outbox.c.id)
+        ).scalars().all()
+
+    locked_rows_selected = Event()
+    release_first_batch = Event()
+
+    def select_batch(hold_locks: bool) -> list[int]:
+        with engine.connect() as connection:
+            with connection.begin():
+                selected = connection.execute(
+                    select(outbox.c.id)
+                    .where(outbox.c.id.in_(row_ids), outbox.c.published_at.is_(None))
+                    .order_by(outbox.c.id)
+                    .with_for_update(skip_locked=True)
+                    .limit(10)
+                ).scalars().all()
+                if hold_locks:
+                    locked_rows_selected.set()
+                    if not release_first_batch.wait(timeout=10):
+                        raise TimeoutError("Timed out waiting to release the first relay batch")
+                return list(selected)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first_batch = executor.submit(select_batch, True)
+            assert locked_rows_selected.wait(timeout=10)
+            second_batch = executor.submit(select_batch, False)
+            second_ids = second_batch.result(timeout=10)
+            release_first_batch.set()
+            first_ids = first_batch.result(timeout=10)
+
+        assert set(first_ids).isdisjoint(second_ids)
+        assert set(first_ids) | set(second_ids) == set(row_ids)
+    finally:
+        release_first_batch.set()
+        with engine.begin() as connection:
+            connection.execute(delete(outbox).where(outbox.c.id.in_(row_ids)))

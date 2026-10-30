@@ -1,0 +1,15 @@
+[
+  {
+    "event_id": "1c1a84dc-c011-44d9-aa3e-5f9f299dcc27",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:09:12.692163+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "concurrent-duplicate-eafe3a5c867249b29dcba183da620d6a",
+      "raw_ref": "/internal/runs/e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd/raw",
+      "received_at": "2026-10-30T12:09:12.692163+00:00"
+    },
+    "run_id": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+    "schema_version": "1.0"
+  }
+]

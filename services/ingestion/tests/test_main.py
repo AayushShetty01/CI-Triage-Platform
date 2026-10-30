@@ -3,11 +3,12 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, select, update
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import metadata, outbox, runs
 from app.main import create_app
-from app.relay import publish_pending_batch
+from app.relay import _retry_delay, publish_pending_batch, run_outbox_relay
 
 JUNIT_XML = b"""<?xml version="1.0"?>
 <testsuite name="sample">
@@ -65,6 +66,75 @@ def test_health_and_metrics_endpoints(ingestion_client) -> None:
     assert "ingestion_health_checks_total" in metrics_response.text
     assert "ingest_requests_total" in metrics_response.text
     assert "outbox_pending" in metrics_response.text
+    assert "relay_consecutive_failures" in metrics_response.text
+
+
+def test_post_returns_503_with_retry_after_when_database_is_unavailable(
+    ingestion_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _ = ingestion_client
+
+    def database_unavailable(*args, **kwargs):
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr("app.main._store_run", database_unavailable)
+    response = _raw_upload(client)
+
+    assert response.status_code == 503
+    assert response.status_code != 202
+    assert response.headers["retry-after"] == str(client.app.state.retry_after_seconds)
+
+
+def test_raw_report_returns_503_with_retry_after_when_database_is_unavailable(
+    ingestion_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine = ingestion_client
+
+    def database_unavailable():
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr(engine, "connect", database_unavailable)
+    response = client.get(f"/internal/runs/{'1' * 64}/raw")
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"] == str(client.app.state.retry_after_seconds)
+
+
+def test_retry_after_setting_can_be_configured_from_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("INGESTION_RETRY_AFTER_SECONDS", "9")
+    app = create_app(
+        database_url=f"sqlite:///{tmp_path / 'retry-after-setting.db'}",
+        enable_relay=False,
+    )
+    try:
+        assert app.state.retry_after_seconds == 9
+    finally:
+        app.state.engine.dispose()
+
+
+def test_retry_delay_grows_to_cap_and_stays_within_full_jitter_bounds() -> None:
+    bounds = []
+
+    def use_upper_bound(lower: float, upper: float) -> float:
+        bounds.append((lower, upper))
+        return upper
+
+    delays = [_retry_delay(2.0, 10.0, attempt, use_upper_bound) for attempt in range(5)]
+
+    assert [upper for _, upper in bounds] == [2.0, 4.0, 8.0, 10.0, 10.0]
+    assert delays == [upper for _, upper in bounds]
+    assert all(lower <= delay <= upper for (lower, upper), delay in zip(bounds, delays))
+    assert all(first <= second for first, second in zip(delays, delays[1:]))
+    assert max(delays) <= 10.0
+
+
+def test_retry_delay_can_select_lower_jitter_bound() -> None:
+    assert _retry_delay(2.0, 30.0, 3, lambda lower, upper: lower) == 0.0
 
 
 def test_raw_report_is_stored_with_outbox_event_in_same_submission(ingestion_client) -> None:
@@ -87,6 +157,7 @@ def test_raw_report_is_stored_with_outbox_event_in_same_submission(ingestion_cli
     assert event["event_type"] == "RunReceived"
     assert event["payload"]["run_id"] == run_id
     assert event["payload"]["payload"]["commit_sha"] == "0123456789abcdef"
+    assert event["payload"]["payload"]["raw_ref"] == f"/internal/runs/{run_id}/raw"
     assert event["published_at"] is None
 
 
@@ -356,6 +427,135 @@ class FailingExchange:
         assert routing_key == "run.received"
         assert mandatory is True
         raise RuntimeError("broker unavailable")
+
+
+class FailingThenConfirmingExchange:
+    def __init__(self) -> None:
+        self.publish_attempts = 0
+        self.messages: list[dict[str, object]] = []
+
+    async def publish(self, message, routing_key: str, mandatory: bool) -> None:
+        assert message.content_type == "application/json"
+        assert routing_key == "run.received"
+        assert mandatory is True
+        self.publish_attempts += 1
+        if self.publish_attempts in {1, 3}:
+            raise RuntimeError("temporary broker failure")
+        self.messages.append(json.loads(message.body))
+
+
+class RecordingMetric:
+    def __init__(self) -> None:
+        self.values: list[int] = []
+        self.increment_count = 0
+
+    def set(self, value: int) -> None:
+        self.values.append(value)
+
+    def inc(self) -> None:
+        self.increment_count += 1
+
+
+def test_legacy_outbox_event_gets_raw_ref_when_published(ingestion_client) -> None:
+    client, engine = ingestion_client
+    response = _raw_upload(client)
+    run_id = response.json()["run_id"]
+
+    with engine.begin() as connection:
+        stored_event = connection.execute(select(outbox)).mappings().one()
+        legacy_payload = dict(stored_event["payload"])
+        legacy_body = dict(legacy_payload["payload"])
+        legacy_body.pop("raw_ref")
+        legacy_payload["payload"] = legacy_body
+        connection.execute(
+            update(outbox)
+            .where(outbox.c.id == stored_event["id"])
+            .values(payload=legacy_payload)
+        )
+
+    exchange = ConfirmingExchange()
+    published = asyncio.run(publish_pending_batch(engine, exchange, batch_size=50))
+
+    assert published == 1
+    message = exchange.messages[0][1]
+    assert message["run_id"] == run_id
+    assert message["payload"]["raw_ref"] == f"/internal/runs/{run_id}/raw"
+    assert message["payload"]["commit_sha"] == "0123456789abcdef"
+
+
+def test_relay_recovers_from_publish_error_and_resets_failure_gauge(
+    ingestion_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine = ingestion_client
+    _raw_upload(client)
+    exchange = FailingThenConfirmingExchange()
+    pending_gauge = RecordingMetric()
+    errors = RecordingMetric()
+    failures = RecordingMetric()
+    connections = []
+
+    class FakeChannel:
+        async def declare_exchange(self, *args, **kwargs):
+            return exchange
+
+        async def close(self) -> None:
+            return None
+
+    class FakeConnection:
+        def __init__(self) -> None:
+            self.is_closed = False
+
+        async def channel(self, **kwargs):
+            return FakeChannel()
+
+        async def close(self) -> None:
+            self.is_closed = True
+
+    async def connect(_rabbitmq_url: str):
+        connection = FakeConnection()
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr("app.relay.aio_pika.connect_robust", connect)
+    sleeps = []
+    random_bounds = []
+
+    async def controlled_sleep(delay: float) -> None:
+        sleeps.append(delay)
+        if len(sleeps) == 2:
+            _raw_upload(client, commit_sha="relay-second-run")
+        elif len(sleeps) == 4:
+            raise asyncio.CancelledError
+
+    def use_upper_bound(lower: float, upper: float) -> float:
+        random_bounds.append((lower, upper))
+        return upper
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(
+            run_outbox_relay(
+                engine=engine,
+                rabbitmq_url="amqp://unused",
+                poll_interval_seconds=0.25,
+                batch_size=50,
+                pending_gauge=pending_gauge,
+                publish_errors=errors,
+                consecutive_failures_gauge=failures,
+                backoff_cap_seconds=0.4,
+                sleep=controlled_sleep,
+                random_uniform=use_upper_bound,
+            )
+        )
+
+    assert exchange.publish_attempts == 4
+    assert len(exchange.messages) == 2
+    assert len(connections) == 3
+    assert sleeps == [0.25, 0.25, 0.25, 0.25]
+    assert random_bounds == [(0.0, 0.25), (0.0, 0.25)]
+    assert errors.increment_count == 2
+    assert failures.values == [1, 0, 1, 0]
+    assert pending_gauge.values[-1] == 0
 
 
 def test_relay_marks_event_published_only_after_confirmation(ingestion_client) -> None:
