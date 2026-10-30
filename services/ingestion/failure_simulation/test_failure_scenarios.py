@@ -824,7 +824,7 @@ def test_broker_flapping(failure_stack: dict[str, Any]) -> None:
                 await asyncio.to_thread(compose.stop_rabbitmq_app)
                 await asyncio.to_thread(rabbitmq.wait_unavailable)
                 outage_started = time.monotonic()
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 await asyncio.to_thread(compose.start_rabbitmq_app)
                 await asyncio.to_thread(rabbitmq.wait_available)
                 outage_seconds = time.monotonic() - outage_started
@@ -948,6 +948,14 @@ def test_broker_flapping(failure_stack: dict[str, Any]) -> None:
     )
     _assert(evidence, "all uploads accepted while broker flapped", request_count, len(accepted))
     _assert(evidence, "four broker outages completed", 4, len(recoveries))
+    for recovery in recoveries:
+        outage_seconds = recovery["outage_seconds"]
+        evidence.check(
+            f"broker outage {recovery['attempt']} lasted 3 to 5 seconds",
+            3.0 <= outage_seconds <= 5.0,
+            "3.0 <= outage_seconds <= 5.0",
+            outage_seconds,
+        )
     evidence.check(
         "queued messages were retained across each restart",
         all(item["queued_after"] >= item["queued_before"] for item in recoveries),
