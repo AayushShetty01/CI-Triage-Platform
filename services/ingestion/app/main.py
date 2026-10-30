@@ -23,7 +23,11 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request as StarletteRequest
 
 from app.database import outbox, runs
-from app.relay import run_outbox_relay
+from app.relay import (
+    refresh_outbox_metrics,
+    run_outbox_relay,
+    set_outbox_metric_values,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +48,10 @@ ingest_latency = Histogram(
 outbox_pending = Gauge(
     "outbox_pending",
     "Number of unpublished ingestion outbox events.",
+)
+outbox_oldest_pending_seconds = Gauge(
+    "outbox_oldest_pending_seconds",
+    "Age in seconds of the oldest unpublished ingestion outbox event.",
 )
 relay_publish_errors = Counter(
     "relay_publish_errors_total",
@@ -221,7 +229,7 @@ def _store_run(
     raw_xml: bytes,
     commit_sha: str,
     branch: str,
-) -> tuple[str, int]:
+) -> tuple[str, int, datetime | None]:
     run_id = hashlib.sha256(commit_sha.encode("utf-8") + raw_xml).hexdigest()
     received_at = datetime.now(timezone.utc)
     event_id = str(uuid.uuid4())
@@ -261,10 +269,12 @@ def _store_run(
                     published_at=None,
                 )
             )
-        pending_count = connection.execute(
-            select(func.count()).select_from(outbox).where(outbox.c.published_at.is_(None))
-        ).scalar_one()
-    return run_id, int(pending_count)
+        pending_count, oldest_pending_created_at = connection.execute(
+            select(func.count(), func.min(outbox.c.created_at)).where(
+                outbox.c.published_at.is_(None)
+            )
+        ).one()
+    return run_id, int(pending_count), oldest_pending_created_at
 
 
 def create_app(
@@ -308,6 +318,7 @@ def create_app(
                     poll_interval_seconds,
                     batch_size,
                     outbox_pending,
+                    outbox_oldest_pending_seconds,
                     relay_publish_errors,
                     relay_consecutive_failures,
                     backoff_cap_seconds,
@@ -349,7 +360,15 @@ def create_app(
         return {"status": "ok"}
 
     @application.get("/metrics", include_in_schema=False)
-    def metrics() -> Response:
+    def metrics(request: Request) -> Response:
+        try:
+            refresh_outbox_metrics(
+                request.app.state.engine,
+                outbox_pending,
+                outbox_oldest_pending_seconds,
+            )
+        except SQLAlchemyError:
+            logger.exception("Failed to refresh outbox metrics")
         return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @application.post("/runs", status_code=202)
@@ -359,7 +378,7 @@ def create_app(
             request.app.state.max_report_size_bytes,
         )
         try:
-            run_id, pending_count = _store_run(
+            run_id, pending_count, oldest_pending_created_at = _store_run(
                 request.app.state.engine,
                 raw_xml,
                 commit_sha,
@@ -372,7 +391,12 @@ def create_app(
                 detail="Ingestion storage is unavailable",
                 headers={"Retry-After": str(request.app.state.retry_after_seconds)},
             ) from exc
-        outbox_pending.set(pending_count)
+        set_outbox_metric_values(
+            pending_count,
+            oldest_pending_created_at,
+            outbox_pending,
+            outbox_oldest_pending_seconds,
+        )
         return {"run_id": run_id, "status": "accepted"}
 
     @application.get("/internal/runs/{run_id}/raw")

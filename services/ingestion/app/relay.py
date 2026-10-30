@@ -17,6 +17,51 @@ EXCHANGE_NAME = "triage.events"
 ROUTING_KEYS = {"RunReceived": "run.received"}
 
 
+def set_outbox_metric_values(
+    pending_count: int,
+    oldest_pending_created_at: datetime | None,
+    pending_gauge: Any,
+    oldest_pending_gauge: Any,
+    clock: Callable[[], datetime] | None = None,
+) -> None:
+    pending_gauge.set(pending_count)
+    if oldest_pending_created_at is None:
+        oldest_pending_gauge.set(0)
+        return
+
+    # Age is row-created UTC time compared with an injectable application UTC clock.
+    now = clock() if clock is not None else datetime.now(timezone.utc)
+    if oldest_pending_created_at.tzinfo is None:
+        oldest_pending_created_at = oldest_pending_created_at.replace(tzinfo=timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    age_seconds = max(0.0, (now - oldest_pending_created_at).total_seconds())
+    oldest_pending_gauge.set(age_seconds)
+
+
+def refresh_outbox_metrics(
+    engine: Engine,
+    pending_gauge: Any,
+    oldest_pending_gauge: Any,
+    clock: Callable[[], datetime] | None = None,
+) -> int:
+    with engine.connect() as connection:
+        pending_count, oldest_pending_created_at = connection.execute(
+            select(func.count(), func.min(outbox.c.created_at)).where(
+                outbox.c.published_at.is_(None)
+            )
+        ).one()
+    pending_count = int(pending_count)
+    set_outbox_metric_values(
+        pending_count,
+        oldest_pending_created_at,
+        pending_gauge,
+        oldest_pending_gauge,
+        clock,
+    )
+    return pending_count
+
+
 def _retry_delay(
     base_seconds: float,
     cap_seconds: float,
@@ -87,6 +132,7 @@ async def run_outbox_relay(
     poll_interval_seconds: float,
     batch_size: int,
     pending_gauge: Any,
+    oldest_pending_gauge: Any,
     publish_errors: Any,
     consecutive_failures_gauge: Any,
     backoff_cap_seconds: float = 30.0,
@@ -99,8 +145,11 @@ async def run_outbox_relay(
         while True:
             delay = poll_interval_seconds
             try:
-                pending_count = count_pending(engine)
-                pending_gauge.set(pending_count)
+                pending_count = refresh_outbox_metrics(
+                    engine,
+                    pending_gauge,
+                    oldest_pending_gauge,
+                )
                 if pending_count:
                     if connection is None or connection.is_closed:
                         connection = await aio_pika.connect_robust(rabbitmq_url)
@@ -113,7 +162,11 @@ async def run_outbox_relay(
                     await publish_pending_batch(engine, exchange, batch_size)
                     attempt = 0
                     consecutive_failures_gauge.set(0)
-                    pending_gauge.set(count_pending(engine))
+                    refresh_outbox_metrics(
+                        engine,
+                        pending_gauge,
+                        oldest_pending_gauge,
+                    )
                     await channel.close()
             except asyncio.CancelledError:
                 raise

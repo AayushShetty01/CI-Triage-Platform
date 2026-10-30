@@ -1,14 +1,20 @@
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, select, update
+from sqlalchemy import create_engine, func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import metadata, outbox, runs
 from app.main import create_app
-from app.relay import _retry_delay, publish_pending_batch, run_outbox_relay
+from app.relay import (
+    _retry_delay,
+    publish_pending_batch,
+    refresh_outbox_metrics,
+    run_outbox_relay,
+)
 
 JUNIT_XML = b"""<?xml version="1.0"?>
 <testsuite name="sample">
@@ -66,7 +72,84 @@ def test_health_and_metrics_endpoints(ingestion_client) -> None:
     assert "ingestion_health_checks_total" in metrics_response.text
     assert "ingest_requests_total" in metrics_response.text
     assert "outbox_pending" in metrics_response.text
+    assert "outbox_oldest_pending_seconds" in metrics_response.text
     assert "relay_consecutive_failures" in metrics_response.text
+
+
+def test_metrics_endpoint_stays_available_when_database_is_unavailable(
+    ingestion_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine = ingestion_client
+
+    def database_unavailable():
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr(engine, "connect", database_unavailable)
+
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert "outbox_oldest_pending_seconds" in response.text
+
+
+def test_oldest_pending_age_metric_empty_grows_and_resets(ingestion_client) -> None:
+    _, engine = ingestion_client
+    pending_gauge = RecordingMetric()
+    oldest_pending_gauge = RecordingMetric()
+    created_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    now = [created_at + timedelta(seconds=5)]
+
+    refresh_outbox_metrics(
+        engine,
+        pending_gauge,
+        oldest_pending_gauge,
+        clock=lambda: now[0],
+    )
+    assert pending_gauge.values[-1] == 0
+    assert oldest_pending_gauge.values[-1] == 0
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            insert(outbox).values(
+                event_type="RunReceived",
+                payload={"run_id": "a" * 64},
+                created_at=created_at,
+                published_at=None,
+            )
+        )
+        outbox_id = result.inserted_primary_key[0]
+
+    refresh_outbox_metrics(
+        engine,
+        pending_gauge,
+        oldest_pending_gauge,
+        clock=lambda: now[0],
+    )
+    assert pending_gauge.values[-1] == 1
+    assert oldest_pending_gauge.values[-1] == 5
+
+    now[0] += timedelta(seconds=10)
+    refresh_outbox_metrics(
+        engine,
+        pending_gauge,
+        oldest_pending_gauge,
+        clock=lambda: now[0],
+    )
+    assert oldest_pending_gauge.values[-1] == 15
+
+    with engine.begin() as connection:
+        connection.execute(
+            update(outbox).where(outbox.c.id == outbox_id).values(published_at=now[0])
+        )
+    refresh_outbox_metrics(
+        engine,
+        pending_gauge,
+        oldest_pending_gauge,
+        clock=lambda: now[0],
+    )
+    assert pending_gauge.values[-1] == 0
+    assert oldest_pending_gauge.values[-1] == 0
 
 
 def test_post_returns_503_with_retry_after_when_database_is_unavailable(
@@ -491,6 +574,7 @@ def test_relay_recovers_from_publish_error_and_resets_failure_gauge(
     _raw_upload(client)
     exchange = FailingThenConfirmingExchange()
     pending_gauge = RecordingMetric()
+    oldest_pending_gauge = RecordingMetric()
     errors = RecordingMetric()
     failures = RecordingMetric()
     connections = []
@@ -540,6 +624,7 @@ def test_relay_recovers_from_publish_error_and_resets_failure_gauge(
                 poll_interval_seconds=0.25,
                 batch_size=50,
                 pending_gauge=pending_gauge,
+                oldest_pending_gauge=oldest_pending_gauge,
                 publish_errors=errors,
                 consecutive_failures_gauge=failures,
                 backoff_cap_seconds=0.4,

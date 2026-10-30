@@ -164,6 +164,23 @@ def test_broker_down(failure_stack: dict[str, Any]) -> None:
         "> 0",
         metrics["relay_consecutive_failures"],
     )
+    first_age = metric_value(
+        ingestion.metrics(),
+        "outbox_oldest_pending_seconds",
+    )
+    time.sleep(2)
+    second_age = metric_value(
+        ingestion.metrics(),
+        "outbox_oldest_pending_seconds",
+    )
+    evidence.measurements["oldest_pending_seconds_samples"] = [first_age, second_age]
+    evidence.check("oldest pending age is positive", first_age > 0, "> 0", first_age)
+    evidence.check(
+        "oldest pending age increases while broker is down",
+        second_age > first_age,
+        f"> {first_age}",
+        second_age,
+    )
 
     compose.start("rabbitmq")
     compose.wait_healthy("rabbitmq")
@@ -175,6 +192,18 @@ def test_broker_down(failure_stack: dict[str, Any]) -> None:
         condition=lambda pending: pending == 0,
     )
     evidence.measurements["pending_after_recovery"] = pending_after_recovery
+    recovered_age = wait_until(
+        lambda: metric_value(
+            ingestion.metrics(),
+            "outbox_oldest_pending_seconds",
+        ),
+        timeout=30,
+        interval=1,
+        description="oldest pending age metric to reset after recovery",
+        condition=lambda age: age == 0,
+    )
+    evidence.measurements["oldest_pending_seconds_after_recovery"] = recovered_age
+    _assert(evidence, "oldest pending age after recovery", 0, recovered_age)
     wait_until(
         rabbitmq.count_messages,
         timeout=30,
