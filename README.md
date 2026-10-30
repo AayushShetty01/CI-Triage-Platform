@@ -35,8 +35,9 @@ The relay publishes persistent messages to the durable `triage.events` topic
 exchange with publisher confirms. A pending event is marked published only
 after confirmation. Delivery is at least once: if the relay stops after a
 broker confirmation but before the database update, it can publish again with
-the same `event_id`, so consumers should be idempotent. Events follow
-[`RunReceived.schema.json`](contracts/events/RunReceived.schema.json).
+the same `event_id`, so consumers should be idempotent. Events follow the
+[`RunReceived` JSON Schema](contracts/events/run_received.schema.json). The
+contract samples are under `contracts/events/samples/` for consumer tests.
 
 Compose initializes a dedicated `ingestion` database role and schema on the
 first start. Set `INGESTION_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
@@ -74,6 +75,9 @@ The named pytest cases inventory `/health` and `/metrics`; raw and multipart
 JUnit uploads, accepted XML media types, metadata sources and validation,
 malformed/unsafe XML, size and content-type limits, duplicate/idempotent
 submissions, persisted report retrieval, and outbox/relay success and failure.
+Contract tests validate both shared samples, events read from the outbox,
+legacy-event relay transformation, invalid envelope examples, and the message
+received from RabbitMQ.
 The integration case also verifies persistence and the delivered event against
 the configured PostgreSQL database and RabbitMQ broker. JUnit case names are
 the pytest node IDs; the execution log and text summary also include stable

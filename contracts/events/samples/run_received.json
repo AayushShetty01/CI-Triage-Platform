@@ -1,0 +1,13 @@
+{
+  "event_id": "2e9c2a85-3c72-4dfb-9f62-ef143c77f58d",
+  "event_type": "RunReceived",
+  "occurred_at": "2026-01-15T12:30:45Z",
+  "schema_version": "1.0",
+  "run_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payload": {
+    "commit_sha": "abcdef0123456789",
+    "branch": "main",
+    "raw_ref": "/internal/runs/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "received_at": "2026-01-15T12:30:45Z"
+  }
+}

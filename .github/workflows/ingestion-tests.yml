@@ -55,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r services/ingestion/requirements-dev.txt
 
-      - name: Run Ingestion tests
+      - name: Run Ingestion unit, contract, and integration tests
         id: pytest
         run: |
           mkdir -p artifacts

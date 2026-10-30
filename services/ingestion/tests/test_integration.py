@@ -14,6 +14,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator, FormatChecker
 from sqlalchemy import create_engine, delete, insert, select
 from sqlalchemy.engine import Engine
 
@@ -21,6 +22,14 @@ from app.database import outbox, runs
 from app.main import create_app
 
 SERVICE_DIR = Path(__file__).resolve().parents[1]
+EVENT_SCHEMA_PATH = (
+    SERVICE_DIR.parents[1] / "contracts" / "events" / "run_received.schema.json"
+)
+EVENT_SCHEMA = json.loads(EVENT_SCHEMA_PATH.read_text(encoding="utf-8"))
+EVENT_VALIDATOR = Draft202012Validator(
+    EVENT_SCHEMA,
+    format_checker=FormatChecker(),
+)
 REALISTIC_JUNIT_XML = b"""<?xml version="1.0"?>
 <testsuites name="payments-ci" tests="2" failures="1">
   <testsuite name="checkout" tests="2" failures="1">
@@ -181,6 +190,7 @@ def test_upload_persists_report_and_publishes_confirmed_event(
             assert raw_response.content == REALISTIC_JUNIT_XML
 
             event = asyncio.run(_receive_event(rabbitmq_url, queue_name))
+            EVENT_VALIDATOR.validate(event)
             assert event["event_type"] == "RunReceived"
             assert event["run_id"] == run_id
             assert event["payload"]["commit_sha"] == commit_sha

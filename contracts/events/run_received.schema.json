@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "RunReceived.schema.json",
+  "$id": "run_received.schema.json",
   "title": "RunReceived",
   "type": "object",
   "additionalProperties": false,
@@ -25,19 +25,18 @@
       "format": "date-time"
     },
     "schema_version": {
-      "type": "string",
-      "const": "1.0"
+      "type": "string"
     },
     "run_id": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[A-Fa-f0-9]{64}$"
     },
     "payload": {
       "type": "object",
-      "additionalProperties": false,
       "required": [
         "commit_sha",
         "branch",
+        "raw_ref",
         "received_at"
       ],
       "properties": {
@@ -51,11 +50,16 @@
           "minLength": 1,
           "maxLength": 255
         },
+        "raw_ref": {
+          "type": "string",
+          "pattern": "^/internal/runs/"
+        },
         "received_at": {
           "type": "string",
           "format": "date-time"
         }
-      }
+      },
+      "additionalProperties": true
     }
   }
 }

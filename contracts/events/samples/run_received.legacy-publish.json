@@ -1,0 +1,13 @@
+{
+  "event_id": "93a4c24a-44ab-4f4f-8ff1-ef7e108e62ab",
+  "event_type": "RunReceived",
+  "occurred_at": "2026-01-10T09:15:00Z",
+  "schema_version": "1.0",
+  "run_id": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+  "payload": {
+    "commit_sha": "fedcba9876543210",
+    "branch": "release/1.0",
+    "received_at": "2026-01-10T09:15:00Z",
+    "raw_ref": "/internal/runs/fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  }
+}
