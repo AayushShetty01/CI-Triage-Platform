@@ -1,10 +1,12 @@
 import os
-from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database import metadata
+from app.logging_config import configure_json_logging
+
+configure_json_logging()
 
 config = context.config
 database_url = os.getenv(
@@ -12,9 +14,6 @@ database_url = os.getenv(
     "postgresql+psycopg://ingestion:ingestion_dev@localhost:5432/triage",
 )
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
-
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
 
 target_metadata = metadata
 

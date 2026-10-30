@@ -4,6 +4,7 @@ import hmac
 import io
 import logging
 import os
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -24,6 +25,11 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request as StarletteRequest
 
 from app.database import outbox, runs
+from app.logging_config import (
+    configure_json_logging,
+    request_id_context,
+    run_id_context,
+)
 from app.relay import (
     refresh_outbox_metrics,
     run_outbox_relay,
@@ -31,6 +37,12 @@ from app.relay import (
 )
 
 logger = logging.getLogger(__name__)
+REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+def _matches_api_key(supplied: str, expected: str) -> bool:
+    return hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8"))
+
 
 health_checks = Counter(
     "ingestion_health_checks_total",
@@ -235,8 +247,9 @@ def _store_run(
     raw_xml: bytes,
     commit_sha: str,
     branch: str,
-) -> tuple[str, int, datetime | None]:
+) -> tuple[str, int, datetime | None, bool]:
     run_id = hashlib.sha256(commit_sha.encode("utf-8") + raw_xml).hexdigest()
+    run_id_context.set(run_id)
     received_at = datetime.now(timezone.utc)
     event_id = str(uuid.uuid4())
     payload = {
@@ -280,7 +293,7 @@ def _store_run(
                 outbox.c.published_at.is_(None)
             )
         ).one()
-    return run_id, int(pending_count), oldest_pending_created_at
+    return run_id, int(pending_count), oldest_pending_created_at, created
 
 
 def create_app(
@@ -289,6 +302,7 @@ def create_app(
     enable_relay: bool = True,
     max_report_size_bytes: int | None = None,
 ) -> FastAPI:
+    configure_json_logging()
     ingestion_api_key = os.getenv("INGESTION_API_KEY")
     internal_api_key = os.getenv("INTERNAL_API_KEY")
     if (
@@ -366,13 +380,35 @@ def create_app(
         status_code = 500
         route = request.scope.get("route")
         path = getattr(route, "path", request.url.path)
+        requested_id = request.headers.get("x-request-id", "")
+        request_id = (
+            requested_id
+            if REQUEST_ID_PATTERN.fullmatch(requested_id)
+            else str(uuid.uuid4())
+        )
+        request_token = request_id_context.set(request_id)
+        run_token = run_id_context.set(None)
         try:
             response = await call_next(request)
             status_code = response.status_code
+            response.headers["X-Request-ID"] = request_id
             return response
         finally:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            logger.info(
+                "HTTP request completed",
+                extra={
+                    "event": "http_request_completed",
+                    "request_id": request_id,
+                    "endpoint": path,
+                    "status_code": status_code,
+                    "duration_ms": round(duration_ms, 3),
+                },
+            )
             ingest_requests.labels(request.method, path, str(status_code)).inc()
-            ingest_latency.labels(request.method, path).observe(time.perf_counter() - started_at)
+            ingest_latency.labels(request.method, path).observe(duration_ms / 1000)
+            run_id_context.reset(run_token)
+            request_id_context.reset(request_token)
 
     @application.get("/health")
     def health() -> dict[str, str]:
@@ -394,8 +430,17 @@ def create_app(
     @application.post("/runs", status_code=202)
     async def submit_run(request: Request) -> dict[str, str]:
         supplied_api_key = request.headers.get("x-api-key", "")
-        if not hmac.compare_digest(supplied_api_key, request.app.state.ingestion_api_key):
+        if not _matches_api_key(supplied_api_key, request.app.state.ingestion_api_key):
             ingest_auth_failures.labels(endpoint="/runs").inc()
+            logger.warning(
+                "Upload authentication rejected",
+                extra={
+                    "event": "upload_auth_rejected",
+                    "request_id": request_id_context.get(),
+                    "endpoint": "/runs",
+                    "status_code": 401,
+                },
+            )
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or missing API key",
@@ -406,7 +451,7 @@ def create_app(
             request.app.state.max_report_size_bytes,
         )
         try:
-            run_id, pending_count, oldest_pending_created_at = _store_run(
+            run_id, pending_count, oldest_pending_created_at, created = _store_run(
                 request.app.state.engine,
                 raw_xml,
                 commit_sha,
@@ -425,16 +470,35 @@ def create_app(
             outbox_pending,
             outbox_oldest_pending_seconds,
         )
+        logger.info(
+            "Run accepted" if created else "Duplicate run accepted",
+            extra={
+                "event": "run_accepted" if created else "duplicate_run_accepted",
+                "run_id": run_id,
+                "request_id": request_id_context.get(),
+                "endpoint": "/runs",
+                "status_code": 202,
+            },
+        )
         return {"run_id": run_id, "status": "accepted"}
 
     @application.get("/internal/runs/{run_id}/raw")
     def get_raw_run(run_id: str, request: Request) -> Response:
         supplied_internal_key = request.headers.get("x-internal-key", "")
-        if not hmac.compare_digest(
+        if not _matches_api_key(
             supplied_internal_key,
             request.app.state.internal_api_key,
         ):
             ingest_auth_failures.labels(endpoint="/internal/runs/{run_id}/raw").inc()
+            logger.warning(
+                "Raw report authentication rejected",
+                extra={
+                    "event": "raw_auth_rejected",
+                    "request_id": request_id_context.get(),
+                    "endpoint": "/internal/runs/{run_id}/raw",
+                    "status_code": 401,
+                },
+            )
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or missing API key",

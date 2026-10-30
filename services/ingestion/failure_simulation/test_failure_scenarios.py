@@ -15,6 +15,7 @@ from failure_simulation.harness import (
     IngestionClient,
     RabbitMQHelper,
     ScenarioEvidence,
+    logged_run_ids,
     metric_value,
     run_id_for_submission,
     synthetic_junit_report,
@@ -88,7 +89,30 @@ def failure_stack(request: pytest.FixtureRequest) -> Iterator[dict[str, Any]]:
     test_report = getattr(request.node, "rep_call", None)
     scenario_passed = bool(test_report and test_report.passed and not cleanup_errors)
     try:
-        evidence.write(passed=scenario_passed, compose=compose)
+        evidence_directory = evidence.write(passed=scenario_passed, compose=compose)
+        if evidence.scenario in {"broker_down", "concurrent_duplicates"}:
+            acknowledged_ids = set(evidence.measurements.get("acknowledged_run_ids", []))
+            logged_ids = logged_run_ids(evidence_directory / "ingestion.log")
+            matched_ids = acknowledged_ids & logged_ids
+            evidence.measurements["acknowledged_run_id_log_counts"] = {
+                "acknowledged_requests": len(
+                    evidence.measurements.get("acknowledged_run_ids", [])
+                ),
+                "unique_acknowledged_run_ids": len(acknowledged_ids),
+                "logged_unique_run_ids": len(matched_ids),
+            }
+            log_check_passed = evidence.record_check(
+                "each acknowledged run ID appears in saved ingestion logs",
+                matched_ids == acknowledged_ids,
+                sorted(acknowledged_ids),
+                sorted(matched_ids),
+            )
+            scenario_passed = scenario_passed and log_check_passed
+            if not log_check_passed:
+                cleanup_errors.append(
+                    "One or more acknowledged run IDs are absent from saved ingestion logs"
+                )
+            evidence.write(passed=scenario_passed, compose=compose)
     finally:
         ingestion.close()
         database.close()
@@ -127,6 +151,7 @@ def test_broker_down(failure_stack: dict[str, Any]) -> None:
         {
             "http_statuses": statuses,
             "accepted_run_ids": run_ids,
+            "acknowledged_run_ids": run_ids,
             "runs_after_upload": database.counts()["runs"],
         }
     )
@@ -328,6 +353,7 @@ def test_concurrent_duplicates(failure_stack: dict[str, Any]) -> None:
             "request_count": count,
             "http_statuses": statuses,
             "returned_run_ids": run_ids,
+            "acknowledged_run_ids": run_ids,
         }
     )
     _assert(evidence, "all concurrent uploads accepted", count, statuses.count(202))

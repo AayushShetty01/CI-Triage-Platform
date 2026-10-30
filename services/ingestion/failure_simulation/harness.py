@@ -460,6 +460,16 @@ class ScenarioEvidence:
     drained_messages: list[dict[str, Any]] = field(default_factory=list)
 
     def check(self, name: str, condition: bool, expected: Any, actual: Any) -> None:
+        passed = self.record_check(name, condition, expected, actual)
+        assert passed, f"{name}: expected {expected!r}, observed {actual!r}"
+
+    def record_check(
+        self,
+        name: str,
+        condition: bool,
+        expected: Any,
+        actual: Any,
+    ) -> bool:
         self.assertions.append(
             {
                 "assertion": name,
@@ -468,7 +478,7 @@ class ScenarioEvidence:
                 "actual": _json_safe(actual),
             }
         )
-        assert condition, f"{name}: expected {expected!r}, observed {actual!r}"
+        return bool(condition)
 
     def write(
         self,
@@ -501,6 +511,21 @@ class ScenarioEvidence:
             encoding="utf-8",
         )
         return directory
+
+
+def logged_run_ids(log_path: Path) -> set[str]:
+    run_ids: set[str] = set()
+    for line in log_path.read_text(encoding="utf-8").splitlines():
+        json_start = line.find("{")
+        if json_start < 0:
+            continue
+        try:
+            record = json.loads(line[json_start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict) and isinstance(record.get("run_id"), str):
+            run_ids.add(record["run_id"])
+    return run_ids
 
 
 def _json_safe(value: Any) -> Any:

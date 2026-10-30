@@ -37,6 +37,10 @@ The development keys are in `.env.example`; override them outside development.
 
 Authentication is deliberately minimal (static shared keys), not a production
 design.
+Ingestion emits one JSON object per application, request, and relay log line,
+including request IDs and run/event IDs when known. API keys, request bodies,
+and XML are not logged; Uvicorn access logging is disabled to avoid duplicate
+plain-text request lines.
 
 The relay publishes persistent messages to the durable `triage.events` topic
 exchange with publisher confirms. A pending event is marked published only
@@ -51,8 +55,9 @@ first start. Set `INGESTION_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
 `RABBITMQ_USER`, and `RABBITMQ_PASSWORD` in the environment to override local
 development credentials. `MAX_REPORT_SIZE_BYTES`, `OUTBOX_POLL_INTERVAL_SECONDS`,
 `RELAY_POLL_INTERVAL_SECONDS`, `RELAY_BACKOFF_CAP_SECONDS`,
-`INGESTION_RETRY_AFTER_SECONDS`, and `OUTBOX_BATCH_SIZE` configure upload,
-relay retry, and client retry behavior. The relay uses full-jitter exponential
+`INGESTION_RETRY_AFTER_SECONDS`, `OUTBOX_BATCH_SIZE`, `INGESTION_API_KEY`, and
+`INTERNAL_API_KEY` configure upload, relay retry, client retry, and endpoint
+authentication. The relay uses full-jitter exponential
 backoff on errors; the legacy `OUTBOX_POLL_INTERVAL_SECONDS` remains the
 fallback when `RELAY_POLL_INTERVAL_SECONDS` is unset.
 
@@ -69,9 +74,10 @@ python -m pytest \
   --junitxml=artifacts/junit-report.xml
 ```
 
-The test run writes `artifacts/ingestion-test.log` with timestamped API
-requests, sanitized payload snippets, response codes, error response details,
-timings, outcomes, and failure tracebacks, plus `artifacts/ingestion-summary.txt`
+The test run writes `artifacts/ingestion-test.log` as JSON lines with API
+request paths, response codes, timings, outcomes, and failure tracebacks.
+Request bodies, XML, and keys are not logged. The run also writes
+`artifacts/ingestion-summary.txt`
 with case counts, execution percentages, failed test IDs, and failure messages.
 Headers and query values are not logged, and credential-like values are
 redacted. The JUnit XML records the actual pytest outcomes. These files are

@@ -11,4 +11,4 @@ COPY migrations ./migrations
 
 EXPOSE 8001
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8001"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8001 --no-access-log"]

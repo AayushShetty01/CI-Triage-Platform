@@ -99,15 +99,38 @@ async def publish_pending_batch(
             payload_body = dict(payload.get("payload", {}))
             payload_body["raw_ref"] = f"/internal/runs/{payload['run_id']}/raw"
             payload["payload"] = payload_body
-            await exchange.publish(
-                aio_pika.Message(
-                    body=json.dumps(payload).encode("utf-8"),
-                    content_type="application/json",
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                    message_id=payload["event_id"],
-                ),
-                routing_key=routing_key,
-                mandatory=True,
+            log_context = {
+                "event_id": payload["event_id"],
+                "run_id": payload["run_id"],
+                "endpoint": routing_key,
+            }
+            logger.info(
+                "Publishing outbox event",
+                extra={**log_context, "event": "relay_publish_attempt"},
+            )
+            try:
+                await exchange.publish(
+                    aio_pika.Message(
+                        body=json.dumps(payload).encode("utf-8"),
+                        content_type="application/json",
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                        message_id=payload["event_id"],
+                    ),
+                    routing_key=routing_key,
+                    mandatory=True,
+                )
+            except Exception:
+                logger.exception(
+                    "Outbox event publish failed",
+                    extra={**log_context, "event": "relay_publish_failed"},
+                )
+                raise
+            logger.info(
+                "Outbox event publish confirmed",
+                extra={
+                    **log_context,
+                    "event": "relay_publish_confirmed",
+                },
             )
             connection.execute(
                 update(outbox)
@@ -180,12 +203,22 @@ async def run_outbox_relay(
                 attempt += 1
                 consecutive_failures_gauge.set(attempt)
                 publish_errors.inc()
-                logger.exception("Outbox relay iteration failed; pending events will be retried")
+                logger.exception(
+                    "Outbox relay iteration failed; pending events will be retried",
+                    extra={
+                        "event": "relay_backoff",
+                        "consecutive_failures": attempt,
+                        "backoff_seconds": delay,
+                    },
+                )
                 if connection is not None and not connection.is_closed:
                     try:
                         await connection.close()
                     except Exception:
-                        logger.exception("Failed to close RabbitMQ connection after relay failure")
+                        logger.exception(
+                            "Failed to close RabbitMQ connection after relay failure",
+                            extra={"event": "relay_connection_close_failed"},
+                        )
                 connection = None
             await sleep(delay)
     finally:

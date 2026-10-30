@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -8,6 +9,7 @@ from sqlalchemy import create_engine, func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import metadata, outbox, runs
+from app.logging_config import IngestionJsonFormatter
 from app.main import create_app
 from app.relay import (
     _retry_delay,
@@ -191,6 +193,160 @@ def test_authentication_failures_do_not_expose_keys(
     assert secret not in upload_response.text
     assert secret not in raw_response.text
     assert all(secret not in record.getMessage() for record in caplog.records)
+
+
+def test_request_logs_are_json_and_include_ids_without_api_keys(
+    ingestion_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client, _ = ingestion_client
+    formatter = IngestionJsonFormatter()
+    request_id = "request-id-for-log-test"
+    caplog.set_level(logging.INFO)
+    secret = "never-log-this-api-key"
+
+    accepted = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "X-Request-ID": request_id,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "logging-test",
+            "X-Branch": "main",
+        },
+    )
+    duplicate = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "logging-test",
+            "X-Branch": "main",
+        },
+    )
+    rejected = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": secret,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "rejected-log-test",
+            "X-Branch": "main",
+        },
+    )
+
+    entries = [
+        json.loads(formatter.format(record))
+        for record in caplog.records
+        if record.name.startswith("app.")
+    ]
+    assert accepted.status_code == duplicate.status_code == 202
+    assert rejected.status_code == 401
+    assert accepted.headers["x-request-id"] == request_id
+    accepted_entry = next(entry for entry in entries if entry["event"] == "run_accepted")
+    duplicate_entry = next(
+        entry for entry in entries if entry["event"] == "duplicate_run_accepted"
+    )
+    rejected_entry = next(
+        entry for entry in entries if entry["event"] == "upload_auth_rejected"
+    )
+    assert accepted_entry["run_id"] == duplicate_entry["run_id"]
+    assert accepted_entry["request_id"] == request_id
+    assert rejected_entry["status_code"] == 401
+    assert all(entry["service"] == "ingestion" for entry in entries)
+    serialized_entries = [json.dumps(entry) for entry in entries]
+    assert all(
+        key_value not in serialized
+        for key_value in (secret, INGESTION_API_KEY, INTERNAL_API_KEY)
+        for serialized in serialized_entries
+    )
+
+
+def test_relay_publish_logs_include_event_and_run_ids(
+    ingestion_client,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    client, engine = ingestion_client
+    formatter = IngestionJsonFormatter()
+    caplog.set_level(logging.INFO)
+
+    accepted = _raw_upload(client, commit_sha="relay-json-success")
+    run_id = accepted.json()["run_id"]
+    with engine.connect() as connection:
+        event = connection.execute(select(outbox.c.payload)).scalar_one()
+    exchange = ConfirmingExchange()
+    assert asyncio.run(publish_pending_batch(engine, exchange, batch_size=10)) == 1
+    success_entries = [
+        json.loads(formatter.format(record))
+        for record in caplog.records
+        if record.name == "app.relay"
+    ]
+    confirmed = next(
+        entry
+        for entry in success_entries
+        if entry["event"] == "relay_publish_confirmed"
+    )
+    attempt = next(
+        entry
+        for entry in success_entries
+        if entry["event"] == "relay_publish_attempt"
+    )
+    assert attempt["event_id"] == event["event_id"]
+    assert attempt["run_id"] == run_id
+    assert confirmed["event_id"] == event["event_id"]
+    assert confirmed["run_id"] == run_id
+
+    caplog.clear()
+    failed_upload = _raw_upload(client, commit_sha="relay-json-failure")
+    failed_run_id = failed_upload.json()["run_id"]
+    with engine.connect() as connection:
+        failed_event = connection.execute(
+            select(outbox.c.payload).where(
+                outbox.c.payload["run_id"].as_string() == failed_run_id
+            )
+        ).scalar_one()
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        asyncio.run(publish_pending_batch(engine, FailingExchange(), batch_size=10))
+
+    failure_entries = [
+        json.loads(formatter.format(record))
+        for record in caplog.records
+        if record.name == "app.relay"
+    ]
+    failed = next(
+        entry
+        for entry in failure_entries
+        if entry["event"] == "relay_publish_failed"
+    )
+    assert failed["event_id"] == failed_event["event_id"]
+    assert failed["run_id"] == failed_run_id
+    assert failed["exception_type"] == "RuntimeError"
+    assert "traceback" in failed
+
+
+def test_json_formatter_handles_empty_exception_and_redacts_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "formatter-test-api-key"
+    monkeypatch.setenv("INGESTION_API_KEY", secret)
+    record = logging.LogRecord(
+        "third_party",
+        logging.ERROR,
+        __file__,
+        1,
+        f"Authorization: Bearer {secret}; broker URL amqp://user:broker-password@host",
+        (),
+        None,
+    )
+    record.exc_info = (None, None, None)
+
+    entry = json.loads(IngestionJsonFormatter().format(record))
+
+    assert entry["service"] == "ingestion"
+    assert secret not in json.dumps(entry)
+    assert "broker-password" not in json.dumps(entry)
 
 
 def test_metrics_endpoint_stays_available_when_database_is_unavailable(
