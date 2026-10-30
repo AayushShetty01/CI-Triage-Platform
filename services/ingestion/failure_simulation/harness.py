@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 import subprocess
@@ -71,6 +72,12 @@ class ComposeHarness:
     def restart(self, service: str) -> None:
         self._run("restart", service)
 
+    def stop_rabbitmq_app(self) -> None:
+        self._run("exec", "--no-TTY", "rabbitmq", "rabbitmqctl", "stop_app")
+
+    def start_rabbitmq_app(self) -> None:
+        self._run("exec", "--no-TTY", "rabbitmq", "rabbitmqctl", "start_app")
+
     def wait_healthy(self, service: str, timeout: float = 120) -> None:
         deadline = time.monotonic() + timeout
         last_status = "not checked"
@@ -125,11 +132,15 @@ class ComposeHarness:
             "@rabbitmq:", "@127.0.0.1:"
         )
 
-    def logs(self, service: str) -> str:
+    def logs(self, service: str, since: str | None = None) -> str:
+        arguments = ["logs", "--no-color", "--timestamps"]
+        if since is not None:
+            timestamp = datetime.fromisoformat(since).astimezone(timezone.utc)
+            arguments.extend(
+                ["--since", timestamp.isoformat(timespec="seconds").replace("+00:00", "Z")]
+            )
         return self._run(
-            "logs",
-            "--no-color",
-            "--timestamps",
+            *arguments,
             service,
             check=False,
             timeout=60,
@@ -166,6 +177,11 @@ class IngestionClient:
                 "X-Branch": branch,
             },
         )
+
+    def get_raw_report(self, run_id: str) -> bytes:
+        response = self.client.get(f"/internal/runs/{run_id}/raw")
+        response.raise_for_status()
+        return response.content
 
     async def post_report_async(
         self,
@@ -208,6 +224,11 @@ class RabbitMQHelper:
             await queue.purge()
         return connection, channel, queue
 
+    async def _is_available(self) -> bool:
+        connection = await aio_pika.connect(self.rabbitmq_url, timeout=1)
+        await connection.close()
+        return True
+
     async def _count_messages(self) -> int:
         connection, channel, queue = await self._queue()
         try:
@@ -216,6 +237,27 @@ class RabbitMQHelper:
         finally:
             await channel.close()
             await connection.close()
+
+    async def _try_count_messages(self) -> int | None:
+        connection = None
+        channel = None
+        try:
+            connection = await aio_pika.connect(self.rabbitmq_url, timeout=0.5)
+            channel = await connection.channel()
+            queue = await channel.declare_queue(self.queue_name, durable=True)
+            result = await queue.declare()
+            return int(result.message_count)
+        except (
+            aio_pika.exceptions.AMQPException,
+            OSError,
+            asyncio.TimeoutError,
+        ):
+            return None
+        finally:
+            if channel is not None and not channel.is_closed:
+                await channel.close()
+            if connection is not None and not connection.is_closed:
+                await connection.close()
 
     async def _drain_messages(self) -> list[dict[str, Any]]:
         connection, channel, queue = await self._queue()
@@ -237,8 +279,51 @@ class RabbitMQHelper:
 
         asyncio.run(setup())
 
+    def ensure_queue(self) -> None:
+        async def ensure() -> bool:
+            connection, channel, _ = await self._queue()
+            await channel.close()
+            await connection.close()
+            return True
+
+        wait_until(
+            lambda: asyncio.run(ensure()),
+            timeout=30,
+            interval=0.25,
+            description="durable RabbitMQ test queue to be declared and bound",
+        )
+
+    def wait_available(self, timeout: float = 30, interval: float = 0.1) -> None:
+        wait_until(
+            lambda: asyncio.run(self._is_available()),
+            timeout=timeout,
+            interval=interval,
+            description="RabbitMQ AMQP endpoint to become available",
+        )
+
+    def wait_unavailable(self, timeout: float = 15, interval: float = 0.1) -> None:
+        def is_unavailable() -> bool:
+            try:
+                return not asyncio.run(self._is_available())
+            except (
+                aio_pika.exceptions.AMQPException,
+                OSError,
+                asyncio.TimeoutError,
+            ):
+                return True
+
+        wait_until(
+            is_unavailable,
+            timeout=timeout,
+            interval=interval,
+            description="RabbitMQ AMQP endpoint to become unavailable",
+        )
+
     def count_messages(self) -> int:
         return asyncio.run(self._count_messages())
+
+    def try_count_messages(self) -> int | None:
+        return asyncio.run(self._try_count_messages())
 
     def drain_messages(self) -> list[dict[str, Any]]:
         return asyncio.run(self._drain_messages())
@@ -276,6 +361,29 @@ class DatabaseHelper:
                 .where(outbox.c.payload["run_id"].as_string() == run_id)
             ).scalar_one()
         return {"runs": int(runs_count), "outbox": int(outbox_count)}
+
+    def stored_run_ids(self, run_ids: set[str]) -> set[str]:
+        if not run_ids:
+            return set()
+        with self.engine.connect() as connection:
+            stored_ids = connection.execute(
+                select(runs.c.run_id).where(runs.c.run_id.in_(run_ids))
+            ).scalars()
+            return set(stored_ids)
+
+    def pending_count_for_run_ids(self, run_ids: set[str]) -> int:
+        if not run_ids:
+            return 0
+        with self.engine.connect() as connection:
+            count = connection.execute(
+                select(func.count())
+                .select_from(outbox)
+                .where(
+                    outbox.c.payload["run_id"].as_string().in_(run_ids),
+                    outbox.c.published_at.is_(None),
+                )
+            ).scalar_one()
+        return int(count)
 
     def can_query(self) -> bool:
         with self.engine.connect() as connection:
@@ -321,6 +429,10 @@ def synthetic_junit_report(index: int) -> bytes:
     ).encode("utf-8")
 
 
+def run_id_for_submission(report: bytes, commit_sha: str) -> str:
+    return hashlib.sha256(commit_sha.encode("utf-8") + report).hexdigest()
+
+
 def metric_value(metrics: str, name: str) -> float:
     pattern = re.compile(rf"^{re.escape(name)}(?:\{{[^}}]*\}})?\s+([-+0-9.eE]+)$", re.MULTILINE)
     match = pattern.search(metrics)
@@ -359,7 +471,7 @@ class ScenarioEvidence:
         directory.mkdir(parents=True, exist_ok=True)
         for service in SERVICES:
             (directory / f"{service}.log").write_text(
-                compose.logs(service),
+                compose.logs(service, since=self.started_at),
                 encoding="utf-8",
             )
         (directory / "drained-messages.json").write_text(
@@ -383,6 +495,11 @@ class ScenarioEvidence:
 
 
 def _json_safe(value: Any) -> Any:
+    if isinstance(value, bytes):
+        return {
+            "sha256": hashlib.sha256(value).hexdigest(),
+            "length_bytes": len(value),
+        }
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

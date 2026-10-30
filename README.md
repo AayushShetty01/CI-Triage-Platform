@@ -120,13 +120,23 @@ Compose environment; then run:
 make failure-tests
 ```
 
-The current real scenarios cover RabbitMQ downtime and recovery, PostgreSQL
-downtime and recovery without restarting Ingestion, and concurrent duplicate
-uploads. Each run writes measured `summary.json`, per-service timestamped
-Compose logs, and drained RabbitMQ envelopes under
+The real scenarios cover RabbitMQ downtime and recovery, PostgreSQL downtime
+and recovery without restarting Ingestion, concurrent duplicate uploads,
+Ingestion crashes with unpublished rows, an Ingestion kill during concurrent
+uploads, and four timed RabbitMQ application outages while uploads continue.
+The broker-down scenario stops the RabbitMQ container; the flapping scenario
+stops and starts RabbitMQ's application inside the container so each measured
+outage fits the 3–5 second target (full container restarts measured about
+9 seconds). The kill test verifies every 202 is stored and published; the
+flapping test checks the continuous pending-or-queued durability invariant and
+duplicate payloads. Each run writes measured `summary.json`, per-service
+timestamped Compose logs, and drained RabbitMQ envelopes under
 `services/ingestion/failure_simulation/evidence/<scenario>/`. Generated
 evidence is git-ignored; `services/ingestion/failure_simulation/evidence/example/`
 is reserved for one reviewed example run.
+
+Mutation-test results for the accepted-means-durable assertions are recorded in
+`services/ingestion/failure_simulation/MUTATION_CHECK.md`.
 
 The workflow runs automatically on pushes and pull requests, or manually from
 the repository's **Actions → Ingestion tests** page. Each workflow run includes

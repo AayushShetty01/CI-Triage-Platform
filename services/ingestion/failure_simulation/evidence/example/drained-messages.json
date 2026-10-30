@@ -1,15 +1,262 @@
 [
   {
-    "event_id": "1c1a84dc-c011-44d9-aa3e-5f9f299dcc27",
+    "event_id": "9fdfca58-7563-4ecd-8da5-f88a144aac91",
     "event_type": "RunReceived",
-    "occurred_at": "2026-10-30T12:09:12.692163+00:00",
+    "occurred_at": "2026-10-30T12:47:33.794336+00:00",
     "payload": {
       "branch": "failure-test",
-      "commit_sha": "concurrent-duplicate-eafe3a5c867249b29dcba183da620d6a",
-      "raw_ref": "/internal/runs/e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd/raw",
-      "received_at": "2026-10-30T12:09:12.692163+00:00"
+      "commit_sha": "broker-down-8e1edd4b129a4b9fa543c15743d2eec5",
+      "raw_ref": "/internal/runs/94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c/raw",
+      "received_at": "2026-10-30T12:47:33.794336+00:00"
     },
-    "run_id": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+    "run_id": "94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "e3aa9978-5af9-4a1d-9bba-5e18908d736f",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.817395+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-851c9609b05d4720b4dc99eb2b524d8f",
+      "raw_ref": "/internal/runs/00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9/raw",
+      "received_at": "2026-10-30T12:47:33.817395+00:00"
+    },
+    "run_id": "00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "3237e3ec-4246-4559-b58c-69b48b124ea4",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.824991+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-0a98a67d48374eb49f653f0b0f16a7a6",
+      "raw_ref": "/internal/runs/4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de/raw",
+      "received_at": "2026-10-30T12:47:33.824991+00:00"
+    },
+    "run_id": "4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "5831d377-74d5-4427-853a-b7a87a915946",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.834752+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-45138e825b9d46b296cd0d1fa8ee9930",
+      "raw_ref": "/internal/runs/8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab/raw",
+      "received_at": "2026-10-30T12:47:33.834752+00:00"
+    },
+    "run_id": "8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "d389908b-e554-478c-896c-1fafbfaac2b9",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.846740+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-16b340f225c54b50ba9ad3ea738b227e",
+      "raw_ref": "/internal/runs/3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c/raw",
+      "received_at": "2026-10-30T12:47:33.846740+00:00"
+    },
+    "run_id": "3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "d59b1039-02ca-40e5-a3e9-847b4713e441",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.853941+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-c66388eb3ff14956a76c649011e86565",
+      "raw_ref": "/internal/runs/6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e/raw",
+      "received_at": "2026-10-30T12:47:33.853941+00:00"
+    },
+    "run_id": "6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "96a23cd6-140d-4dc7-8e97-b431bb73104a",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.860522+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-46fc008157404836bd03ac4233b33685",
+      "raw_ref": "/internal/runs/9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0/raw",
+      "received_at": "2026-10-30T12:47:33.860522+00:00"
+    },
+    "run_id": "9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "d705fae8-2575-4060-bcc7-9b465a1bc282",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.865044+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-25df1597f479460aae3fa462d2cb03e1",
+      "raw_ref": "/internal/runs/a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f/raw",
+      "received_at": "2026-10-30T12:47:33.865044+00:00"
+    },
+    "run_id": "a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "ef62c773-9e10-4df1-a879-9116c8e91a8f",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.870529+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-167bd3e00d0c488e9e459db5b1299987",
+      "raw_ref": "/internal/runs/43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a/raw",
+      "received_at": "2026-10-30T12:47:33.870529+00:00"
+    },
+    "run_id": "43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "efd1b8f4-511e-4683-9d58-dfa7a834b41a",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.876927+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-fc4c01808023446983b5427a456a1ee7",
+      "raw_ref": "/internal/runs/0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca/raw",
+      "received_at": "2026-10-30T12:47:33.876927+00:00"
+    },
+    "run_id": "0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "e05b7139-499a-4ac4-9505-71d6d92e24c0",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.883417+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-a5f1b3c80fdd44e899cea9ab06205c2f",
+      "raw_ref": "/internal/runs/85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff/raw",
+      "received_at": "2026-10-30T12:47:33.883417+00:00"
+    },
+    "run_id": "85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "633e4fcb-0ae2-452b-90eb-285fdd42eb38",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.892986+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-806bcc5ee20d46c781635b76a55b6913",
+      "raw_ref": "/internal/runs/633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4/raw",
+      "received_at": "2026-10-30T12:47:33.892986+00:00"
+    },
+    "run_id": "633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "018f5b2a-cc6e-4b90-8091-81e4ea9ed33a",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.897970+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-14d8b97e8734414bb30a86dfe161a5af",
+      "raw_ref": "/internal/runs/78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2/raw",
+      "received_at": "2026-10-30T12:47:33.897970+00:00"
+    },
+    "run_id": "78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "257a4040-32d1-46e1-a218-2408b57c1840",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.903350+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-1cbea98caffb44f88820fbc130f0936d",
+      "raw_ref": "/internal/runs/3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875/raw",
+      "received_at": "2026-10-30T12:47:33.903350+00:00"
+    },
+    "run_id": "3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "e07fe51d-4898-4b06-b59f-c94a645169ec",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.909640+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-391299e1c29e40699060e477b6cefa06",
+      "raw_ref": "/internal/runs/f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a/raw",
+      "received_at": "2026-10-30T12:47:33.909640+00:00"
+    },
+    "run_id": "f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "ccdd3c22-0391-4ef6-afd0-2f947eda5b3e",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.914864+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-9b780d152d9c40a0bb844c6c04ff77e6",
+      "raw_ref": "/internal/runs/d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2/raw",
+      "received_at": "2026-10-30T12:47:33.914864+00:00"
+    },
+    "run_id": "d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "f0013504-6f77-46b1-8f5f-3954e8889869",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.921113+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-ef78555d4cfb46e4b7ea89630a252f32",
+      "raw_ref": "/internal/runs/383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d/raw",
+      "received_at": "2026-10-30T12:47:33.921113+00:00"
+    },
+    "run_id": "383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "bb6fb9ef-cb7d-4a26-82dd-46bc871187fc",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.928980+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-33811bd94ff146d39e3e22c6addc2155",
+      "raw_ref": "/internal/runs/6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce/raw",
+      "received_at": "2026-10-30T12:47:33.928980+00:00"
+    },
+    "run_id": "6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "7a0d803f-b4cc-4806-b6f5-b903cb9274d8",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.935921+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-7570f140f67d43e49d0a051dd0137e87",
+      "raw_ref": "/internal/runs/2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b/raw",
+      "received_at": "2026-10-30T12:47:33.935921+00:00"
+    },
+    "run_id": "2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b",
+    "schema_version": "1.0"
+  },
+  {
+    "event_id": "b71fa3b5-043d-42fc-b6d7-0eb59ebceca8",
+    "event_type": "RunReceived",
+    "occurred_at": "2026-10-30T12:47:33.942289+00:00",
+    "payload": {
+      "branch": "failure-test",
+      "commit_sha": "broker-down-46a058cf735a407a8e5f038471501ef9",
+      "raw_ref": "/internal/runs/a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a/raw",
+      "received_at": "2026-10-30T12:47:33.942289+00:00"
+    },
+    "run_id": "a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a",
     "schema_version": "1.0"
   }
 ]

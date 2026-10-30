@@ -1,21 +1,236 @@
-ingestion-1  | 2026-10-30T12:09:12.701280505Z INFO:     172.22.0.1:65374 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.701461796Z INFO:     172.22.0.1:65404 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.701615880Z INFO:     172.22.0.1:65324 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.701634713Z INFO:     172.22.0.1:65370 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.701908546Z INFO:     172.22.0.1:65368 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713182380Z INFO:     172.22.0.1:65322 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713302630Z INFO:     172.22.0.1:65320 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713426838Z INFO:     172.22.0.1:65362 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713433880Z INFO:     172.22.0.1:65470 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713845005Z INFO:     172.22.0.1:65442 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.713989713Z INFO:     172.22.0.1:65390 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714109130Z INFO:     172.22.0.1:65428 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714193463Z INFO:     172.22.0.1:65420 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714312755Z INFO:     172.22.0.1:65454 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714554546Z INFO:     172.22.0.1:65450 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714583005Z INFO:     172.22.0.1:65472 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714591713Z INFO:     172.22.0.1:65510 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714705171Z INFO:     172.22.0.1:65496 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714709046Z INFO:     172.22.0.1:65478 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:12.714860505Z INFO:     172.22.0.1:65482 - "POST /runs HTTP/1.1" 202 Accepted
-ingestion-1  | 2026-10-30T12:09:15.667662923Z INFO:     172.22.0.1:57394 - "GET /health HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:32.007083930Z INFO:     172.22.0.1:62194 - "GET /health HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:32.446314013Z Unexpected connection close from remote "amqp://triage:******@rabbitmq:5672/", Connection.Close(reply_code=320, reply_text="CONNECTION_FORCED - broker forced connection closure with reason 'shutdown'")
+ingestion-1  | 2026-10-30T12:47:32.446352846Z NoneType: None
+ingestion-1  | 2026-10-30T12:47:32.459619763Z error when creating transport: <AMQPConnectionError: (111, "Connect call failed ('172.22.0.3', 5672)")>
+ingestion-1  | 2026-10-30T12:47:32.459639180Z Connection attempt to "amqp://triage:******@rabbitmq:5672/" failed: [Errno 111] Connect call failed ('172.22.0.3', 5672). Reconnecting after 5 seconds.
+ingestion-1  | 2026-10-30T12:47:33.803141430Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.822068083Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.828154041Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.838725458Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.851798500Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.858281083Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.862780333Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.868243833Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.874649000Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.880732708Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.886719875Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.895855750Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.900914958Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.907074875Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.912217458Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.918369125Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.927056750Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.933657166Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.940167291Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.944527166Z INFO:     172.22.0.1:62202 - "POST /runs HTTP/1.1" 202 Accepted
+ingestion-1  | 2026-10-30T12:47:33.963571375Z INFO:     172.22.0.1:62202 - "GET /metrics HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:33.967511625Z INFO:     172.22.0.1:62202 - "GET /metrics HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:34.736275417Z Outbox relay iteration failed; pending events will be retried
+ingestion-1  | 2026-10-30T12:47:34.736308583Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:34.736312333Z   File "/app/app/relay.py", line 107, in run_outbox_relay
+ingestion-1  | 2026-10-30T12:47:34.736315167Z     channel = await connection.channel(publisher_confirms=True)
+ingestion-1  | 2026-10-30T12:47:34.736317583Z                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.736319917Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 235, in channel
+ingestion-1  | 2026-10-30T12:47:34.736322417Z     channel: AbstractRobustChannel = super().channel(
+ingestion-1  | 2026-10-30T12:47:34.736324625Z                                      ^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.736326750Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/connection.py", line 214, in channel
+ingestion-1  | 2026-10-30T12:47:34.736329208Z     raise RuntimeError("Connection was not opened")
+ingestion-1  | 2026-10-30T12:47:34.736331625Z RuntimeError: Connection was not opened
+ingestion-1  | 2026-10-30T12:47:34.754145250Z error when creating transport: <AMQPConnectionError: (-2, 'Name or service not known')>
+ingestion-1  | 2026-10-30T12:47:34.756198083Z Outbox relay iteration failed; pending events will be retried
+ingestion-1  | 2026-10-30T12:47:34.756209625Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:34.756211083Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 326, in create
+ingestion-1  | 2026-10-30T12:47:34.756212292Z     return await asyncio.open_connection(
+ingestion-1  | 2026-10-30T12:47:34.756213250Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756214125Z   File "/usr/local/lib/python3.11/asyncio/streams.py", line 48, in open_connection
+ingestion-1  | 2026-10-30T12:47:34.756215208Z     transport, _ = await loop.create_connection(
+ingestion-1  | 2026-10-30T12:47:34.756216042Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756216833Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1046, in create_connection
+ingestion-1  | 2026-10-30T12:47:34.756217708Z     infos = await self._ensure_resolved(
+ingestion-1  | 2026-10-30T12:47:34.756218542Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756219333Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+ingestion-1  | 2026-10-30T12:47:34.756220208Z     return await loop.getaddrinfo(host, port, family=family, type=type,
+ingestion-1  | 2026-10-30T12:47:34.756221083Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756221917Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+ingestion-1  | 2026-10-30T12:47:34.756222750Z     return await self.run_in_executor(
+ingestion-1  | 2026-10-30T12:47:34.756237500Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756239167Z   File "/usr/local/lib/python3.11/concurrent/futures/thread.py", line 58, in run
+ingestion-1  | 2026-10-30T12:47:34.756240042Z     result = self.fn(*self.args, **self.kwargs)
+ingestion-1  | 2026-10-30T12:47:34.756240875Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756241667Z   File "/usr/local/lib/python3.11/socket.py", line 974, in getaddrinfo
+ingestion-1  | 2026-10-30T12:47:34.756242542Z     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+ingestion-1  | 2026-10-30T12:47:34.756243375Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756244208Z socket.gaierror: [Errno -2] Name or service not known
+ingestion-1  | 2026-10-30T12:47:34.756245042Z
+ingestion-1  | 2026-10-30T12:47:34.756245833Z The above exception was the direct cause of the following exception:
+ingestion-1  | 2026-10-30T12:47:34.756246667Z
+ingestion-1  | 2026-10-30T12:47:34.756247417Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:34.756248208Z   File "/app/app/relay.py", line 106, in run_outbox_relay
+ingestion-1  | 2026-10-30T12:47:34.756249125Z     connection = await aio_pika.connect_robust(rabbitmq_url)
+ingestion-1  | 2026-10-30T12:47:34.756249917Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756250750Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 377, in connect_robust
+ingestion-1  | 2026-10-30T12:47:34.756251667Z     await connection.connect(timeout=timeout)
+ingestion-1  | 2026-10-30T12:47:34.756252458Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 218, in connect
+ingestion-1  | 2026-10-30T12:47:34.756254042Z     await self.__fail_fast_future
+ingestion-1  | 2026-10-30T12:47:34.756254833Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 155, in __connection_factory
+ingestion-1  | 2026-10-30T12:47:34.756255750Z     await Connection.connect(self, self.__connect_timeout)
+ingestion-1  | 2026-10-30T12:47:34.756256583Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/connection.py", line 146, in connect
+ingestion-1  | 2026-10-30T12:47:34.756257458Z     self.transport = await UnderlayConnection.connect(
+ingestion-1  | 2026-10-30T12:47:34.756258292Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756259208Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 731, in connect
+ingestion-1  | 2026-10-30T12:47:34.756260042Z     connection = await cls.make_connection(
+ingestion-1  | 2026-10-30T12:47:34.756260833Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756261667Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 715, in make_connection
+ingestion-1  | 2026-10-30T12:47:34.756262500Z     connection: aiormq.abc.AbstractConnection = await asyncio.wait_for(
+ingestion-1  | 2026-10-30T12:47:34.756263375Z                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756264250Z   File "/usr/local/lib/python3.11/asyncio/tasks.py", line 452, in wait_for
+ingestion-1  | 2026-10-30T12:47:34.756267000Z     return await fut
+ingestion-1  | 2026-10-30T12:47:34.756267792Z            ^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756268583Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 1014, in connect
+ingestion-1  | 2026-10-30T12:47:34.756269458Z     await connection.connect(client_properties or {})
+ingestion-1  | 2026-10-30T12:47:34.756270250Z   File "/usr/local/lib/python3.11/site-packages/aiormq/base.py", line 164, in wrap
+ingestion-1  | 2026-10-30T12:47:34.756271125Z     return await self.create_task(func(self, *args, **kwargs))
+ingestion-1  | 2026-10-30T12:47:34.756271958Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756272792Z   File "/usr/local/lib/python3.11/site-packages/aiormq/abc.py", line 44, in __inner
+ingestion-1  | 2026-10-30T12:47:34.756273667Z     return await self.task
+ingestion-1  | 2026-10-30T12:47:34.756274417Z            ^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756275208Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 551, in connect
+ingestion-1  | 2026-10-30T12:47:34.756276083Z     raise e
+ingestion-1  | 2026-10-30T12:47:34.756276875Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 540, in connect
+ingestion-1  | 2026-10-30T12:47:34.756277708Z     reader, writer = await self._transport_factory.create(
+ingestion-1  | 2026-10-30T12:47:34.756278542Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:34.756279333Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 330, in create
+ingestion-1  | 2026-10-30T12:47:34.756280167Z     raise AMQPConnectionError(*e.args) from e
+ingestion-1  | 2026-10-30T12:47:34.756281042Z aiormq.exceptions.AMQPConnectionError: [Errno -2] Name or service not known
+ingestion-1  | 2026-10-30T12:47:34.978804250Z INFO:     172.22.0.1:62202 - "GET /metrics HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:34.982182583Z INFO:     172.22.0.1:62202 - "GET /metrics HTTP/1.1" 200 OK
+ingestion-1  | 2026-10-30T12:47:35.088990625Z error when creating transport: <AMQPConnectionError: (-2, 'Name or service not known')>
+ingestion-1  | 2026-10-30T12:47:35.090099500Z Outbox relay iteration failed; pending events will be retried
+ingestion-1  | 2026-10-30T12:47:35.090116625Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:35.090118708Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 326, in create
+ingestion-1  | 2026-10-30T12:47:35.090119875Z     return await asyncio.open_connection(
+ingestion-1  | 2026-10-30T12:47:35.090120833Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090121750Z   File "/usr/local/lib/python3.11/asyncio/streams.py", line 48, in open_connection
+ingestion-1  | 2026-10-30T12:47:35.090122792Z     transport, _ = await loop.create_connection(
+ingestion-1  | 2026-10-30T12:47:35.090123708Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090124583Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1046, in create_connection
+ingestion-1  | 2026-10-30T12:47:35.090125583Z     infos = await self._ensure_resolved(
+ingestion-1  | 2026-10-30T12:47:35.090143917Z             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090145708Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1420, in _ensure_resolved
+ingestion-1  | 2026-10-30T12:47:35.090146667Z     return await loop.getaddrinfo(host, port, family=family, type=type,
+ingestion-1  | 2026-10-30T12:47:35.090147625Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090148542Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 868, in getaddrinfo
+ingestion-1  | 2026-10-30T12:47:35.090149500Z     return await self.run_in_executor(
+ingestion-1  | 2026-10-30T12:47:35.090150375Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090151250Z   File "/usr/local/lib/python3.11/concurrent/futures/thread.py", line 58, in run
+ingestion-1  | 2026-10-30T12:47:35.090152208Z     result = self.fn(*self.args, **self.kwargs)
+ingestion-1  | 2026-10-30T12:47:35.090153125Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090153958Z   File "/usr/local/lib/python3.11/socket.py", line 974, in getaddrinfo
+ingestion-1  | 2026-10-30T12:47:35.090154917Z     for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+ingestion-1  | 2026-10-30T12:47:35.090155833Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090156750Z socket.gaierror: [Errno -2] Name or service not known
+ingestion-1  | 2026-10-30T12:47:35.090157708Z
+ingestion-1  | 2026-10-30T12:47:35.090158542Z The above exception was the direct cause of the following exception:
+ingestion-1  | 2026-10-30T12:47:35.090159458Z
+ingestion-1  | 2026-10-30T12:47:35.090160292Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:35.090161125Z   File "/app/app/relay.py", line 106, in run_outbox_relay
+ingestion-1  | 2026-10-30T12:47:35.090162083Z     connection = await aio_pika.connect_robust(rabbitmq_url)
+ingestion-1  | 2026-10-30T12:47:35.090162958Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090163833Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 377, in connect_robust
+ingestion-1  | 2026-10-30T12:47:35.090164833Z     await connection.connect(timeout=timeout)
+ingestion-1  | 2026-10-30T12:47:35.090165750Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 218, in connect
+ingestion-1  | 2026-10-30T12:47:35.090167625Z     await self.__fail_fast_future
+ingestion-1  | 2026-10-30T12:47:35.090168458Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 155, in __connection_factory
+ingestion-1  | 2026-10-30T12:47:35.090169458Z     await Connection.connect(self, self.__connect_timeout)
+ingestion-1  | 2026-10-30T12:47:35.090170333Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/connection.py", line 146, in connect
+ingestion-1  | 2026-10-30T12:47:35.090171292Z     self.transport = await UnderlayConnection.connect(
+ingestion-1  | 2026-10-30T12:47:35.090172167Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090173042Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 731, in connect
+ingestion-1  | 2026-10-30T12:47:35.090175417Z     connection = await cls.make_connection(
+ingestion-1  | 2026-10-30T12:47:35.090176292Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090177125Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 715, in make_connection
+ingestion-1  | 2026-10-30T12:47:35.090178083Z     connection: aiormq.abc.AbstractConnection = await asyncio.wait_for(
+ingestion-1  | 2026-10-30T12:47:35.090179000Z                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090179917Z   File "/usr/local/lib/python3.11/asyncio/tasks.py", line 452, in wait_for
+ingestion-1  | 2026-10-30T12:47:35.090180875Z     return await fut
+ingestion-1  | 2026-10-30T12:47:35.090181708Z            ^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090182500Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 1014, in connect
+ingestion-1  | 2026-10-30T12:47:35.090183500Z     await connection.connect(client_properties or {})
+ingestion-1  | 2026-10-30T12:47:35.090184375Z   File "/usr/local/lib/python3.11/site-packages/aiormq/base.py", line 164, in wrap
+ingestion-1  | 2026-10-30T12:47:35.090185333Z     return await self.create_task(func(self, *args, **kwargs))
+ingestion-1  | 2026-10-30T12:47:35.090186250Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090187167Z   File "/usr/local/lib/python3.11/site-packages/aiormq/abc.py", line 44, in __inner
+ingestion-1  | 2026-10-30T12:47:35.090188125Z     return await self.task
+ingestion-1  | 2026-10-30T12:47:35.090189125Z            ^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090189917Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 551, in connect
+ingestion-1  | 2026-10-30T12:47:35.090190917Z     raise e
+ingestion-1  | 2026-10-30T12:47:35.090191750Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 540, in connect
+ingestion-1  | 2026-10-30T12:47:35.090192708Z     reader, writer = await self._transport_factory.create(
+ingestion-1  | 2026-10-30T12:47:35.090193583Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:35.090194500Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 330, in create
+ingestion-1  | 2026-10-30T12:47:35.090195458Z     raise AMQPConnectionError(*e.args) from e
+ingestion-1  | 2026-10-30T12:47:35.090196375Z aiormq.exceptions.AMQPConnectionError: [Errno -2] Name or service not known
+ingestion-1  | 2026-10-30T12:47:38.687159127Z error when creating transport: <AMQPConnectionError: (111, "Connect call failed ('172.22.0.3', 5672)")>
+ingestion-1  | 2026-10-30T12:47:38.688498960Z Outbox relay iteration failed; pending events will be retried
+ingestion-1  | 2026-10-30T12:47:38.688519835Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:38.688522043Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 326, in create
+ingestion-1  | 2026-10-30T12:47:38.688523918Z     return await asyncio.open_connection(
+ingestion-1  | 2026-10-30T12:47:38.688525335Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688526627Z   File "/usr/local/lib/python3.11/asyncio/streams.py", line 48, in open_connection
+ingestion-1  | 2026-10-30T12:47:38.688561335Z     transport, _ = await loop.create_connection(
+ingestion-1  | 2026-10-30T12:47:38.688564460Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688565835Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1086, in create_connection
+ingestion-1  | 2026-10-30T12:47:38.688567293Z     raise exceptions[0]
+ingestion-1  | 2026-10-30T12:47:38.688568585Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 1070, in create_connection
+ingestion-1  | 2026-10-30T12:47:38.688570002Z     sock = await self._connect_sock(
+ingestion-1  | 2026-10-30T12:47:38.688584835Z            ^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688589002Z   File "/usr/local/lib/python3.11/asyncio/base_events.py", line 974, in _connect_sock
+ingestion-1  | 2026-10-30T12:47:38.688590918Z     await self.sock_connect(sock, address)
+ingestion-1  | 2026-10-30T12:47:38.688592293Z   File "/usr/local/lib/python3.11/asyncio/selector_events.py", line 638, in sock_connect
+ingestion-1  | 2026-10-30T12:47:38.688593793Z     return await fut
+ingestion-1  | 2026-10-30T12:47:38.688595002Z            ^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688596252Z   File "/usr/local/lib/python3.11/asyncio/selector_events.py", line 678, in _sock_connect_cb
+ingestion-1  | 2026-10-30T12:47:38.688597710Z     raise OSError(err, f'Connect call failed {address}')
+ingestion-1  | 2026-10-30T12:47:38.688599168Z ConnectionRefusedError: [Errno 111] Connect call failed ('172.22.0.3', 5672)
+ingestion-1  | 2026-10-30T12:47:38.688600585Z
+ingestion-1  | 2026-10-30T12:47:38.688601835Z The above exception was the direct cause of the following exception:
+ingestion-1  | 2026-10-30T12:47:38.688603210Z
+ingestion-1  | 2026-10-30T12:47:38.688604502Z Traceback (most recent call last):
+ingestion-1  | 2026-10-30T12:47:38.688605752Z   File "/app/app/relay.py", line 106, in run_outbox_relay
+ingestion-1  | 2026-10-30T12:47:38.688607127Z     connection = await aio_pika.connect_robust(rabbitmq_url)
+ingestion-1  | 2026-10-30T12:47:38.688608418Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688609710Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 377, in connect_robust
+ingestion-1  | 2026-10-30T12:47:38.688611210Z     await connection.connect(timeout=timeout)
+ingestion-1  | 2026-10-30T12:47:38.688612543Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 218, in connect
+ingestion-1  | 2026-10-30T12:47:38.688614002Z     await self.__fail_fast_future
+ingestion-1  | 2026-10-30T12:47:38.688615293Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/robust_connection.py", line 155, in __connection_factory
+ingestion-1  | 2026-10-30T12:47:38.688616710Z     await Connection.connect(self, self.__connect_timeout)
+ingestion-1  | 2026-10-30T12:47:38.688619002Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/connection.py", line 146, in connect
+ingestion-1  | 2026-10-30T12:47:38.688620460Z     self.transport = await UnderlayConnection.connect(
+ingestion-1  | 2026-10-30T12:47:38.688621752Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688623085Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 731, in connect
+ingestion-1  | 2026-10-30T12:47:38.688630960Z     connection = await cls.make_connection(
+ingestion-1  | 2026-10-30T12:47:38.688632585Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688633877Z   File "/usr/local/lib/python3.11/site-packages/aio_pika/abc.py", line 715, in make_connection
+ingestion-1  | 2026-10-30T12:47:38.688635252Z     connection: aiormq.abc.AbstractConnection = await asyncio.wait_for(
+ingestion-1  | 2026-10-30T12:47:38.688636627Z                                                 ^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688637960Z   File "/usr/local/lib/python3.11/asyncio/tasks.py", line 452, in wait_for
+ingestion-1  | 2026-10-30T12:47:38.688639335Z     return await fut
+ingestion-1  | 2026-10-30T12:47:38.688640835Z            ^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688642085Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 1014, in connect
+ingestion-1  | 2026-10-30T12:47:38.688643502Z     await connection.connect(client_properties or {})
+ingestion-1  | 2026-10-30T12:47:38.688644793Z   File "/usr/local/lib/python3.11/site-packages/aiormq/base.py", line 164, in wrap
+ingestion-1  | 2026-10-30T12:47:38.688648502Z     return await self.create_task(func(self, *args, **kwargs))
+ingestion-1  | 2026-10-30T12:47:38.688649793Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688651085Z   File "/usr/local/lib/python3.11/site-packages/aiormq/abc.py", line 44, in __inner
+ingestion-1  | 2026-10-30T12:47:38.688652460Z     return await self.task
+ingestion-1  | 2026-10-30T12:47:38.688653710Z            ^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688654918Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 551, in connect
+ingestion-1  | 2026-10-30T12:47:38.688656335Z     raise e
+ingestion-1  | 2026-10-30T12:47:38.688657585Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 540, in connect
+ingestion-1  | 2026-10-30T12:47:38.688659002Z     reader, writer = await self._transport_factory.create(
+ingestion-1  | 2026-10-30T12:47:38.688660293Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ingestion-1  | 2026-10-30T12:47:38.688661627Z   File "/usr/local/lib/python3.11/site-packages/aiormq/connection.py", line 330, in create
+ingestion-1  | 2026-10-30T12:47:38.688663002Z     raise AMQPConnectionError(*e.args) from e
+ingestion-1  | 2026-10-30T12:47:38.688664252Z aiormq.exceptions.AMQPConnectionError: [Errno 111] Connect call failed ('172.22.0.3', 5672)
+ingestion-1  | 2026-10-30T12:47:49.089706548Z INFO:     172.22.0.1:62998 - "GET /health HTTP/1.1" 200 OK

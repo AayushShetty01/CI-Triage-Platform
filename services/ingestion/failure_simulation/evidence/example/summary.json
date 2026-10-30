@@ -1,42 +1,273 @@
 {
   "assertions": [
     {
+      "actual": 202,
+      "assertion": "upload_1_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_2_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_3_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_4_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_5_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_6_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_7_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_8_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_9_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_10_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_11_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_12_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_13_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_14_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_15_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_16_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_17_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_18_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_19_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
+      "actual": 202,
+      "assertion": "upload_20_accepted",
+      "expected": 202,
+      "passed": true
+    },
+    {
       "actual": 20,
-      "assertion": "all concurrent uploads accepted",
+      "assertion": "accepted run IDs are distinct",
       "expected": 20,
       "passed": true
     },
     {
-      "actual": 1,
-      "assertion": "all uploads return one run ID",
-      "expected": 1,
+      "actual": 1018,
+      "assertion": "runs increased by 20",
+      "expected": 1018,
       "passed": true
     },
     {
-      "actual": 1,
-      "assertion": "duplicate event count",
-      "expected": 1,
+      "actual": 20,
+      "assertion": "pending outbox increased by 20",
+      "expected": 20,
       "passed": true
     },
     {
-      "actual": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "assertion": "published event run ID",
-      "expected": "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
+      "actual": 20.0,
+      "assertion": "metrics pending gauge",
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "actual": 2.0,
+      "assertion": "relay failure gauge is positive",
+      "expected": "> 0",
+      "passed": true
+    },
+    {
+      "actual": 20,
+      "assertion": "delivered message count",
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "actual": 20,
+      "assertion": "delivered run IDs are distinct",
+      "expected": 20,
+      "passed": true
+    },
+    {
+      "actual": [
+        "00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9",
+        "0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca",
+        "2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b",
+        "383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d",
+        "3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875",
+        "3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c",
+        "4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de",
+        "43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a",
+        "633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4",
+        "6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce",
+        "6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e",
+        "78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2",
+        "85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff",
+        "8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab",
+        "94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c",
+        "9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0",
+        "a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f",
+        "a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a",
+        "d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2",
+        "f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a"
+      ],
+      "assertion": "delivered IDs match accepted IDs",
+      "expected": [
+        "00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9",
+        "0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca",
+        "2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b",
+        "383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d",
+        "3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875",
+        "3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c",
+        "4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de",
+        "43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a",
+        "633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4",
+        "6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce",
+        "6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e",
+        "78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2",
+        "85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff",
+        "8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab",
+        "94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c",
+        "9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0",
+        "a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f",
+        "a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a",
+        "d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2",
+        "f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a"
+      ],
+      "passed": true
+    },
+    {
+      "actual": [
+        "/internal/runs/94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c/raw",
+        "/internal/runs/00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9/raw",
+        "/internal/runs/4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de/raw",
+        "/internal/runs/8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab/raw",
+        "/internal/runs/3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c/raw",
+        "/internal/runs/6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e/raw",
+        "/internal/runs/9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0/raw",
+        "/internal/runs/a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f/raw",
+        "/internal/runs/43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a/raw",
+        "/internal/runs/0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca/raw",
+        "/internal/runs/85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff/raw",
+        "/internal/runs/633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4/raw",
+        "/internal/runs/78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2/raw",
+        "/internal/runs/3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875/raw",
+        "/internal/runs/f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a/raw",
+        "/internal/runs/d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2/raw",
+        "/internal/runs/383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d/raw",
+        "/internal/runs/6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce/raw",
+        "/internal/runs/2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b/raw",
+        "/internal/runs/a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a/raw"
+      ],
+      "assertion": "every event includes raw_ref",
+      "expected": "raw_ref for each run",
       "passed": true
     }
   ],
-  "ended_at": "2026-10-30T12:09:18.095530+00:00",
+  "ended_at": "2026-10-30T12:47:50.509290+00:00",
   "measured_counts": {
+    "accepted_run_ids": [
+      "94a007c1d698623db18adbd76c5f1ace68640b314fb60d9b4fcee4b1ab30686c",
+      "00259caebbb7890acc7e13efea7ac98a691859849d1acc385d9d98150b6221a9",
+      "4050a15ce813422f290acdac7debf82f03df402b5c349386b8185ce6606748de",
+      "8ad73e08f3dcb990128757bd927daa6b6c5a7a224ab77daa179ba890fc4e40ab",
+      "3b2a1ee5c12d8d887b4f5f79ab25b1ab26455a0cd55b20d807dedf9ffd2e663c",
+      "6fd72c90e4507d027146c61631917bca8b5279865711f77c4476c361a859f14e",
+      "9d7bc3d1373553a3b2b7b8ce079b82dd1f39caa681677df9d58080a8040edfe0",
+      "a63f83e249b4262df26ad38681484d969bd57705a12f09c50f18b60c95fc239f",
+      "43e00847bd07d2bc493930e8c58a3e8d544e0544cad0b7319049a98b96f0b20a",
+      "0ec8709b076e36f370683012bc6942fec24231a1df509e41851a2cebc1a727ca",
+      "85529bdc686ec786200372d6a611afc7a68fbcd1755315362978f5ad2f8dd9ff",
+      "633b779778400e362cf4b3f6efab45326d516bb83853a4d405ac48b3ffe142f4",
+      "78641bba7986a2d76830660d6bdc48ccc32f08632195077cfdf7fba8400b17c2",
+      "3a96e30a49eefe55b0012ce54c675fcea76dc01146745408e3e466ae291ad875",
+      "f8374dead2583904faf4ea69c170fcd72cf3d0047117a6d5985576bb9e3c7d9a",
+      "d486299e50ceee3cfa53aa9662867dfefa5df7dd4834e38f58470881adce80f2",
+      "383e23e505273e3ddfe7992d2831bc18997b567ade159b5b032299e766528c3d",
+      "6f6cb99a288d7d6d32f868916112008d4034d4889b611ad1ed553bd7957cf5ce",
+      "2666f99c2dcf602ec9558f27f6fb844dc66e1f691c221db36cbf8b3a8f69846b",
+      "a88edcecbb27833a9e1f0d8061784c3dfdf0cd53b528f6888595460bc4f6395a"
+    ],
     "cleanup_errors": [],
-    "drained_message_count": 1,
-    "duplicate_row_counts": {
-      "outbox": 1,
-      "runs": 1
-    },
+    "drained_message_count": 20,
     "final_database_counts": {
-      "outbox": 69,
+      "outbox": 998,
       "pending": 0,
-      "runs": 69
+      "runs": 1018
     },
     "http_statuses": [
       202,
@@ -61,36 +292,19 @@
       202
     ],
     "initial_database_counts": {
-      "outbox": 68,
+      "outbox": 978,
       "pending": 0,
-      "runs": 68
+      "runs": 998
     },
-    "request_count": 20,
-    "returned_run_ids": [
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd",
-      "e5da4f6db42c1c295151198c9fbe2045babdf239811f34234dcb717f913c7dfd"
-    ]
+    "metrics_while_broker_down": {
+      "outbox_pending": 20.0,
+      "relay_consecutive_failures": 2.0
+    },
+    "pending_after_recovery": 0,
+    "runs_after_upload": 1018
   },
   "passed": true,
-  "queue_name": "ingestion-failure-af711048df01419ca363096241b99889",
-  "scenario": "concurrent_duplicates",
-  "started_at": "2026-10-30T12:09:12.671148+00:00"
+  "queue_name": "ingestion-failure-8336219d1e46453f944be7f7eaf22230",
+  "scenario": "broker_down",
+  "started_at": "2026-10-30T12:47:32.360445+00:00"
 }
