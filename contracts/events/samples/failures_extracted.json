@@ -1,0 +1,27 @@
+{
+  "event_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "event_type": "FailuresExtracted",
+  "occurred_at": "2026-01-15T12:31:00Z",
+  "schema_version": "1.0",
+  "run_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payload": {
+    "commit_sha": "abcdef0123456789",
+    "branch": "main",
+    "total_tests": 2,
+    "failed_tests": 1,
+    "passed_tests": 1,
+    "skipped_tests": 0,
+    "failures": [
+      {
+        "test_id": "payments.CheckoutTests::rejects_expired_card",
+        "test_name": "rejects_expired_card",
+        "class_name": "payments.CheckoutTests",
+        "file_path": "tests/test_checkout.py",
+        "duration_seconds": 0.42,
+        "error_type": "AssertionError",
+        "error_message": "expected HTTP 402, got 200",
+        "stack_trace": "Traceback (most recent call last):\n  File \"tests/test_checkout.py\", line 42, in test_rejects_expired_card\n    assert response.status_code == 402\nAssertionError: expected HTTP 402, got 200"
+      }
+    ]
+  }
+}
