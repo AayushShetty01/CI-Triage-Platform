@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "failures_extracted.schema.json",
+  "title": "FailuresExtracted",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "schema_version",
+    "run_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "FailuresExtracted"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "commit_sha",
+        "branch",
+        "total_tests",
+        "failed_tests",
+        "passed_tests",
+        "skipped_tests",
+        "failures"
+      ],
+      "properties": {
+        "commit_sha": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "total_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "passed_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped_tests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "test_id",
+              "test_name",
+              "class_name"
+            ],
+            "properties": {
+              "test_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "test_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "class_name": {
+                "type": "string",
+                "maxLength": 255
+              },
+              "file_path": {
+                "type": ["string", "null"],
+                "maxLength": 512
+              },
+              "duration_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "error_type": {
+                "type": ["string", "null"],
+                "maxLength": 255
+              },
+              "error_message": {
+                "type": ["string", "null"]
+              },
+              "stack_trace": {
+                "type": ["string", "null"]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

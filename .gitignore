@@ -5,3 +5,4 @@ __pycache__/
 /services/ingestion/failure_simulation/evidence/*
 !/services/ingestion/failure_simulation/evidence/example/
 !/services/ingestion/failure_simulation/evidence/example/**
+.env

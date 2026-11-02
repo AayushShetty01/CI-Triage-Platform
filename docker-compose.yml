@@ -6,11 +6,13 @@ services:
       POSTGRES_USER: triage_admin
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-triage_admin_dev}
       INGESTION_DB_PASSWORD: ${INGESTION_DB_PASSWORD:-ingestion_dev}
+      PARSER_DB_PASSWORD: ${PARSER_DB_PASSWORD:-parser_dev}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init-ingestion.sh:/docker-entrypoint-initdb.d/10-ingestion.sh:ro
+      - ./infra/postgres/init-parser.sh:/docker-entrypoint-initdb.d/20-parser.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U triage_admin -d triage"]
       interval: 5s
@@ -52,6 +54,28 @@ services:
         condition: service_healthy
     ports:
       - "8001:8001"
+
+  parser:
+    build:
+      context: ./services/parser
+    environment:
+      DATABASE_URL: postgresql+psycopg://parser:${PARSER_DB_PASSWORD:-parser_dev}@postgres:5432/triage
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-triage}:${RABBITMQ_PASSWORD:-triage_dev}@rabbitmq:5672/
+      INGESTION_BASE_URL: http://ingestion:8001
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key-change-me}
+      OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1}
+      RELAY_POLL_INTERVAL_SECONDS: ${RELAY_POLL_INTERVAL_SECONDS:-${OUTBOX_POLL_INTERVAL_SECONDS:-1}}
+      RELAY_BACKOFF_CAP_SECONDS: ${RELAY_BACKOFF_CAP_SECONDS:-30}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-50}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ingestion:
+        condition: service_started
+    ports:
+      - "8002:8002"
 
 volumes:
   postgres_data:
