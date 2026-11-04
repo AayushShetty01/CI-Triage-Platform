@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "failure_classified.schema.json",
+  "title": "FailureClassified",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "schema_version",
+    "run_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "const": "FailureClassified"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "test_id",
+        "test_name",
+        "class_name",
+        "commit_sha",
+        "branch",
+        "fingerprint",
+        "category",
+        "status",
+        "source",
+        "versions"
+      ],
+      "properties": {
+        "test_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "test_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "class_name": {
+          "type": "string",
+          "maxLength": 255
+        },
+        "commit_sha": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "category": {
+          "enum": ["assertion", "timeout", "infrastructure", "flaky", "unknown"]
+        },
+        "status": {
+          "description": "classified: a rule or the LLM produced the category. degraded: the LLM was unavailable, so only rule-based classification ran and the category is unknown.",
+          "enum": ["classified", "degraded"]
+        },
+        "source": {
+          "enum": ["rule", "llm", "llm_cache", "fallback"]
+        },
+        "confidence": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "maxLength": 300
+        },
+        "rule_id": {
+          "type": ["string", "null"],
+          "maxLength": 64
+        },
+        "versions": {
+          "type": "object",
+          "required": ["rules_version", "model", "prompt_version", "prompt_hash"],
+          "properties": {
+            "rules_version": {"type": "string"},
+            "model": {"type": ["string", "null"]},
+            "prompt_version": {"type": ["string", "null"]},
+            "prompt_hash": {"type": ["string", "null"]}
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

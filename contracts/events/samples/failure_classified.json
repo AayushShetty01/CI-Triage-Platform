@@ -1,0 +1,27 @@
+{
+  "event_id": "5f0c7e1a-2b3d-4e5f-8a9b-0c1d2e3f4a5b",
+  "event_type": "FailureClassified",
+  "occurred_at": "2026-01-15T12:31:05Z",
+  "schema_version": "1.0",
+  "run_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payload": {
+    "test_id": "payments.CheckoutTests::rejects_expired_card",
+    "test_name": "rejects_expired_card",
+    "class_name": "payments.CheckoutTests",
+    "commit_sha": "abcdef0123456789",
+    "branch": "main",
+    "fingerprint": "3f6a1c0e9b8d7a6f5e4d3c2b1a098765",
+    "category": "assertion",
+    "status": "classified",
+    "source": "rule",
+    "confidence": 1.0,
+    "reason": "Matched rule assertion.error_type",
+    "rule_id": "assertion.error_type",
+    "versions": {
+      "rules_version": "1",
+      "model": null,
+      "prompt_version": null,
+      "prompt_hash": null
+    }
+  }
+}
