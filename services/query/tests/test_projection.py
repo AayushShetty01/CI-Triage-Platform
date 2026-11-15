@@ -134,3 +134,14 @@ def test_insights_flag_mixed_categories_and_versions(engine):
     result = insights(engine)
     assert result["top_failures"][0]["category"] == "mixed"
     assert len(result["classifier_versions"]) == 2
+
+
+def test_junit_without_classname_is_accepted(engine):
+    run_id = "4" * 64
+    parsed = extracted(run_id)
+    parsed["payload"]["failures"][0]["class_name"] = ""
+    result = classified(run_id)
+    result["payload"]["class_name"] = ""
+    apply_event(engine, parsed)
+    apply_event(engine, result)
+    assert get_run(engine, run_id)["state"] == "complete"

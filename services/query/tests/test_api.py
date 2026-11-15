@@ -15,6 +15,7 @@ def test_dashboard_and_api_show_pending_then_complete(tmp_path):
         assert client.get("/app.js").status_code == 200
         assert client.get("/api/runs/unknown").status_code == 404
         parsed = {"event_id": str(uuid4()), "event_type": "FailuresExtracted",
+                  "schema_version": "1.0",
                   "occurred_at": datetime.now(timezone.utc).isoformat(), "run_id": run_id,
                   "payload": {"commit_sha": "abc", "branch": "main", "total_tests": 1,
                               "failed_tests": 1, "passed_tests": 0, "skipped_tests": 0,

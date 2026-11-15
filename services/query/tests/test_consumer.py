@@ -44,6 +44,7 @@ def metrics():
 
 def extracted():
     return {"event_id": str(uuid4()), "event_type": "FailuresExtracted",
+            "schema_version": "1.0",
             "occurred_at": datetime.now(timezone.utc).isoformat(), "run_id": "a" * 64,
             "payload": {"commit_sha": "abc", "branch": "main", "total_tests": 1,
                         "failed_tests": 0, "passed_tests": 1, "skipped_tests": 0, "failures": []}}
@@ -113,4 +114,38 @@ def test_consumer_sends_invalid_event_to_dlq():
     message = Message(b"not json")
     asyncio.run(consumer.handle_message(message, db, "http://parser", metrics()))
     assert message.rejected and not message.acked
+    db.dispose()
+
+
+def test_consumer_sends_invalid_payload_to_dlq():
+    db = engine()
+    value = extracted()
+    value["payload"]["failed_tests"] = "one"
+    message = Message(value)
+    asyncio.run(consumer.handle_message(message, db, "http://parser", metrics()))
+    assert message.rejected and not message.nacked
+    db.dispose()
+
+
+def test_consumer_sends_invalid_parser_result_to_dlq(monkeypatch):
+    db = engine()
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, path):
+            return httpx.Response(200, json=[{"status": "passed"}],
+                                  request=httpx.Request("GET", "http://parser" + path))
+
+    monkeypatch.setattr(consumer.httpx, "AsyncClient", Client)
+    message = Message(extracted())
+    asyncio.run(consumer.handle_message(message, db, "http://parser", metrics()))
+    assert message.rejected and not message.nacked
     db.dispose()

@@ -2,7 +2,9 @@
 # All changes for one event, including its deduplication record, commit together.
 
 from datetime import datetime, timezone
+import re
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -14,10 +16,25 @@ from app.database import failures, processed_events, runs, tests
 EVENT_TYPES = {"RunReceived", "FailuresExtracted", "FailureClassified"}
 TERMINAL_STATUSES = {"classified", "degraded"}
 CATEGORIES = {"assertion", "timeout", "infrastructure", "flaky", "unknown"}
+RUN_ID = re.compile(r"[a-fA-F0-9]{64}\Z")
+FINGERPRINT = re.compile(r"[a-f0-9]{32}\Z")
 
 
 def parse_time(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if not isinstance(value, str):
+        raise ValueError("Invalid timestamp")
+    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if result.tzinfo is None:
+        raise ValueError("Timestamp must include timezone")
+    return result
+
+
+def require_text(value: Any, field: str, maximum: int, nullable: bool = False,
+                 allow_empty: bool = False) -> None:
+    if value is None and nullable:
+        return
+    if not isinstance(value, str) or (not value and not allow_empty) or len(value) > maximum:
+        raise ValueError(f"Invalid {field}")
 
 
 def insert_for(conn: Connection, table):
@@ -27,23 +44,60 @@ def insert_for(conn: Connection, table):
 def validate_event(event: dict[str, Any]) -> None:
     if not isinstance(event, dict) or event.get("event_type") not in EVENT_TYPES:
         raise ValueError("Unsupported event type")
-    for field in ("event_id", "run_id", "occurred_at"):
-        if not isinstance(event.get(field), str) or not event[field]:
-            raise ValueError(f"Missing {field}")
+    require_text(event.get("event_id"), "event_id", 36)
+    try:
+        UUID(event["event_id"])
+    except ValueError as exc:
+        raise ValueError("Invalid event_id") from exc
+    if not isinstance(event.get("run_id"), str) or not RUN_ID.fullmatch(event["run_id"]):
+        raise ValueError("Invalid run_id")
+    require_text(event.get("schema_version"), "schema_version", 32)
     if not isinstance(event.get("payload"), dict):
         raise ValueError("Missing payload")
     parse_time(event["occurred_at"])
     payload = event["payload"]
+    require_text(payload.get("commit_sha"), "commit_sha", 128)
+    require_text(payload.get("branch"), "branch", 255)
+    if event["event_type"] == "RunReceived" and payload.get("received_at") is not None:
+        parse_time(payload["received_at"])
     if event["event_type"] == "FailuresExtracted":
+        for field in ("total_tests", "failed_tests", "passed_tests", "skipped_tests"):
+            value = payload.get(field)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"Invalid {field}")
         if not isinstance(payload.get("failures"), list):
             raise ValueError("Missing failures list")
-        if any(not isinstance(row, dict) or not row.get("test_id") for row in payload["failures"]):
-            raise ValueError("Invalid failure")
+        for row in payload["failures"]:
+            if not isinstance(row, dict):
+                raise ValueError("Invalid failure")
+            require_text(row.get("test_id"), "failure.test_id", 255)
+            require_text(row.get("test_name"), "failure.test_name", 255)
+            require_text(row.get("class_name"), "failure.class_name", 255,
+                         nullable=True, allow_empty=True)
+            for field in ("error_type", "error_message"):
+                value = row.get(field)
+                if value is not None and not isinstance(value, str):
+                    raise ValueError(f"Invalid failure.{field}")
+            if row.get("error_type") is not None and len(row["error_type"]) > 255:
+                raise ValueError("Invalid failure.error_type")
     if event["event_type"] == "FailureClassified":
-        if not payload.get("test_id") or payload.get("status") not in TERMINAL_STATUSES:
+        require_text(payload.get("test_id"), "classification.test_id", 255)
+        require_text(payload.get("test_name"), "classification.test_name", 255)
+        require_text(payload.get("class_name"), "classification.class_name", 255,
+                     nullable=True, allow_empty=True)
+        if not isinstance(payload.get("status"), str) or payload["status"] not in TERMINAL_STATUSES:
             raise ValueError("Invalid classification status or test_id")
-        if payload.get("category") not in CATEGORIES or not isinstance(payload.get("versions"), dict):
+        if not isinstance(payload.get("category"), str) or payload["category"] not in CATEGORIES:
+            raise ValueError("Invalid category")
+        if not isinstance(payload.get("fingerprint"), str) or not FINGERPRINT.fullmatch(payload["fingerprint"]):
+            raise ValueError("Invalid fingerprint")
+        if not isinstance(payload.get("versions"), dict):
             raise ValueError("Invalid category or versions")
+        require_text(payload["versions"].get("rules_version"), "rules_version", 64)
+        for field, maximum in (("model", 128), ("prompt_version", 64), ("prompt_hash", 128)):
+            value = payload["versions"].get(field)
+            if value is not None:
+                require_text(value, field, maximum)
 
 
 def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[str, Any]] | None = None) -> bool:

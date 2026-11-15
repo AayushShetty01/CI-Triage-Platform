@@ -20,6 +20,21 @@ DLQ = "query.events.dlq"
 ROUTING_KEYS = ("run.received", "failures.extracted", "failure.classified")
 
 
+def validate_parser_results(rows: Any) -> None:
+    if not isinstance(rows, list):
+        raise ValueError("Parser returned non-list results")
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("Parser returned invalid test result")
+        for field in ("test_id", "test_name", "class_name"):
+            if not isinstance(row.get(field), str) or len(row[field]) > 255:
+                raise ValueError(f"Parser returned invalid {field}")
+        if not row["test_id"] or not row["test_name"]:
+            raise ValueError("Parser returned empty test identity")
+        if not isinstance(row.get("status"), str) or row["status"] not in {"passed", "failed", "error", "skipped"}:
+            raise ValueError("Parser returned invalid test status")
+
+
 async def handle_message(message: Any, engine: Engine, parser_url: str, metrics: Any) -> None:
     try:
         event = json.loads(message.body.decode("utf-8"))
@@ -42,9 +57,13 @@ async def handle_message(message: Any, engine: Engine, parser_url: str, metrics:
                 response = await client.get(f"/runs/{event['run_id']}/results")
                 response.raise_for_status()
                 test_results = response.json()
-                if not isinstance(test_results, list):
-                    raise ValueError("Parser returned non-list results")
-        except (httpx.HTTPError, ValueError) as exc:
+                validate_parser_results(test_results)
+        except ValueError as exc:
+            logger.error("Rejecting malformed Parser response for %s: %s", event["run_id"], exc)
+            metrics.events.labels(result="poison").inc()
+            await message.reject(requeue=False)
+            return
+        except httpx.HTTPError as exc:
             logger.warning("Parser history unavailable for %s: %s", event["run_id"], exc)
             metrics.events.labels(result="retry").inc()
             await asyncio.sleep(2)
