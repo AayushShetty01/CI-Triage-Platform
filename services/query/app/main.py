@@ -30,11 +30,13 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         metadata.create_all(engine)
+        ready = asyncio.Event()
+        app.state.consumer_ready = ready
         task = None
         if enable_consumer:
             task = asyncio.create_task(run_consumer(
                 engine, os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
-                os.getenv("PARSER_BASE_URL", "http://localhost:8002"), metrics,
+                os.getenv("PARSER_BASE_URL", "http://localhost:8002"), metrics, ready,
             ))
         try:
             yield
@@ -53,12 +55,16 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
     @app.middleware("http")
     async def measure(request: Request, call_next):
         started = time.perf_counter()
-        response = await call_next(request)
-        route = request.scope.get("route")
-        path = route.path if route else request.url.path
-        metrics.requests.labels(request.method, path, str(response.status_code)).inc()
-        metrics.latency.labels(request.method, path).observe(time.perf_counter() - started)
-        return response
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            return response
+        finally:
+            route = request.scope.get("route")
+            path = route.path if route else request.url.path
+            metrics.requests.labels(request.method, path, str(status)).inc()
+            metrics.latency.labels(request.method, path).observe(time.perf_counter() - started)
 
     @app.get("/")
     def dashboard():
@@ -79,6 +85,8 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
                 conn.execute(select(1))
         except Exception as exc:
             raise HTTPException(status_code=503, detail="Query database unavailable") from exc
+        if enable_consumer and not app.state.consumer_ready.is_set():
+            raise HTTPException(status_code=503, detail="Query queue not ready")
         return {"status": "healthy", "service": "query"}
 
     @app.get("/metrics")

@@ -7,6 +7,7 @@ class Metrics:
         self.latency = Histogram("query_http_latency_seconds", "Query HTTP latency", ("method", "route"))
         self.events = Counter("query_events_total", "Query event processing outcomes", ("result",))
         self.pending = Gauge("query_pending_failures", "Pending failure classifications in the projection")
+        self.consumer_ready = Gauge("query_consumer_ready", "One when the Query queue is bound")
 
 
 metrics = Metrics()

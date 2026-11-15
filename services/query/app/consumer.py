@@ -63,7 +63,8 @@ async def handle_message(message: Any, engine: Engine, parser_url: str, metrics:
     await message.ack()
 
 
-async def run_consumer(engine: Engine, rabbitmq_url: str, parser_url: str, metrics: Any) -> None:
+async def run_consumer(engine: Engine, rabbitmq_url: str, parser_url: str,
+                       metrics: Any, ready: asyncio.Event) -> None:
     while True:
         try:
             connection = await aio_pika.connect_robust(rabbitmq_url)
@@ -79,6 +80,8 @@ async def run_consumer(engine: Engine, rabbitmq_url: str, parser_url: str, metri
                 })
                 for key in ROUTING_KEYS:
                     await queue.bind(exchange, routing_key=key)
+                ready.set()
+                metrics.consumer_ready.set(1)
                 async with queue.iterator() as messages:
                     async for message in messages:
                         await handle_message(message, engine, parser_url, metrics)
@@ -87,3 +90,6 @@ async def run_consumer(engine: Engine, rabbitmq_url: str, parser_url: str, metri
         except Exception:
             logger.exception("Query consumer disconnected; reconnecting")
             await asyncio.sleep(5)
+        finally:
+            ready.clear()
+            metrics.consumer_ready.set(0)

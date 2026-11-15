@@ -174,6 +174,25 @@ services:
     ports:
       - "8005:8005"
 
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-triage_dev}
+    volumes:
+      - ./infra/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/triage.yml:ro
+      - ./infra/monitoring/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/triage.yml:ro
+      - ./infra/monitoring/grafana/ci-triage.json:/var/lib/grafana/dashboards/ci-triage.json:ro
+    ports:
+      - "3000:3000"
+
 volumes:
   postgres_data:
   ollama_data:
