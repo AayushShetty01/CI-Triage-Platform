@@ -22,5 +22,7 @@ def test_dashboard_and_api_show_pending_then_complete(tmp_path):
         apply_event(app.state.engine, parsed)
         assert client.get(f"/api/runs/{run_id}").json()["state"] == "pending"
         assert client.get("/api/insights").json()["pending"] == 1
+        assert len(client.get("/api/runs?branch=main").json()) == 1
+        assert client.get("/api/runs?branch=other").json() == []
         assert client.get("/metrics").status_code == 200
         assert client.get("/health").status_code == 200

@@ -31,7 +31,7 @@
     <section class="panel"><div class="panel-head"><div><span class="eyebrow">RECENT ACTIVITY</span><h2>CI runs</h2></div><span class="hint">Select a run for its classifications</span></div><div class="table-wrap"><table><thead><tr><th>Run</th><th>Branch</th><th>Tests</th><th>Failures</th><th>Status</th><th>Received</th></tr></thead><tbody id="run-list"><tr><td colspan="6" class="empty">Loading runs…</td></tr></tbody></table></div></section>
     <section id="run-detail" class="panel" hidden><div class="panel-head"><div><span class="eyebrow">RUN DETAIL</span><h2 id="detail-title">Classification progress</h2></div><button id="close-detail" type="button" aria-label="Close run detail">Close</button></div><p id="detail-subtitle" class="hint"></p><div class="table-wrap"><table><thead><tr><th>Test</th><th>Error</th><th>Category</th><th>Status</th><th>Source</th><th>Version</th></tr></thead><tbody id="failure-list"></tbody></table></div></section>
     <section class="panel"><div class="panel-head"><div><span class="eyebrow">HISTORY SIGNAL</span><h2>Potentially flaky tests</h2></div><span class="hint">Candidate signal, not proof of flakiness</span></div><div class="table-wrap"><table><thead><tr><th>Test</th><th>Passed runs</th><th>Failed runs</th></tr></thead><tbody id="flaky-list"><tr><td colspan="3" class="empty">Loading test history…</td></tr></tbody></table></div></section>
-    <footer>Classification versions are preserved per result. A selected window may contain results from multiple versions. Data refreshes every 10 seconds.</footer>
+    <footer><span id="versions-note">Classification versions are preserved per result.</span> Data refreshes every 10 seconds.</footer>
   </main>
 </body>
 </html>

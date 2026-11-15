@@ -114,12 +114,18 @@ async function openRun(runId) {
 async function refresh() {
   try {
     const [runs, overview, flaky] = await Promise.all([
-      json("/api/runs"), json(`/api/insights?${params()}`), json(`/api/flaky?${params()}`)
+      json(`/api/runs?${params()}`), json(`/api/insights?${params()}`), json(`/api/flaky?${params()}`)
     ]);
     $("#runs-count").textContent = overview.runs;
     $("#pending-count").textContent = overview.pending;
     $("#degraded-count").textContent = overview.degraded;
     $("#flaky-count").textContent = flaky.candidates.length;
+    const versions = overview.classifier_versions || [];
+    $("#versions-note").textContent = versions.length > 1
+      ? `This window mixes ${versions.length} classifier versions; compare categories with care.`
+      : versions.length === 1
+        ? `Classifier: rules ${versions[0].rules_version}, model ${versions[0].model || "none"}, prompt ${versions[0].prompt_version || "none"}.`
+        : "Classification versions are preserved per result.";
     renderCategories(overview); renderGroups(overview.top_failures);
     renderRuns(runs); renderFlaky(flaky.candidates);
     if (state.selectedRun) await openRun(state.selectedRun);

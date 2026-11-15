@@ -89,8 +89,11 @@ def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[s
                     "error_message": (row.get("error_message") or "")[:2000],
                     "status": "pending",
                 }
-                conn.execute(insert_for(conn, failures).values(**values).on_conflict_do_nothing(
-                    index_elements=["run_id", "test_id"]
+                conn.execute(insert_for(conn, failures).values(**values).on_conflict_do_update(
+                    index_elements=["run_id", "test_id"],
+                    set_={key: values[key] for key in (
+                        "test_name", "class_name", "error_type", "error_message"
+                    )},
                 ))
             for row in test_results or []:
                 if row.get("status") not in {"passed", "failed", "error", "skipped"}:

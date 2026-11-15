@@ -19,6 +19,6 @@ Query could call Parser's `/runs/{run_id}/results` or a new history endpoint on 
 
 ## Consequences and change trigger
 
-The Query service can continue serving previously projected insights when Parser is down. During an outage, its queue and pending states can lag; metrics and health reveal that. Duplicate deliveries are harmless. A brand-new Query queue cannot recover events published before the queue existed, so the deployment must start Query before accepting reports, or a future version must provide explicit backfill.
+The Query service can continue serving previously projected insights when Parser is down. During an outage, its queue and pending states can lag; metrics reveal that. Duplicate deliveries are harmless. Compose waits for Query to bind its queue before starting Ingestion, so new deployments do not accept reports before the queue exists. Events from a deployment that predates Query still require explicit backfill.
 
 We would reconsider the projection if measured history storage or recovery lag exceeded the project's laptop budget, or if the course scenario demanded a strongly consistent flaky answer immediately after report acceptance. In that case, a Parser history API with a documented availability and latency budget would be the simpler trade-off.

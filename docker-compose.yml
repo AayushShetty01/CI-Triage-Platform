@@ -56,6 +56,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      query:
+        condition: service_healthy
     ports:
       - "8001:8001"
 
@@ -169,8 +171,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      parser:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     ports:
       - "8005:8005"
 

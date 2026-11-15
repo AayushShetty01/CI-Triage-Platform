@@ -15,9 +15,14 @@ def _row(row: Any) -> dict[str, Any]:
     return {key: _iso(value) for key, value in row.items()}
 
 
-def list_runs(engine: Engine, limit: int = 50) -> list[dict[str, Any]]:
+def list_runs(engine: Engine, limit: int = 50, days: int = 7,
+              branch: str | None = None) -> list[dict[str, Any]]:
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     with engine.connect() as conn:
-        rows = conn.execute(select(runs).order_by(
+        rows = conn.execute(select(runs).where(
+            func.coalesce(runs.c.received_at, runs.c.parsed_at) >= since,
+            *([runs.c.branch == branch] if branch else []),
+        ).order_by(
             func.coalesce(runs.c.received_at, runs.c.parsed_at).desc()
         ).limit(limit)).mappings().all()
         return [_run_summary(conn, row) for row in rows]
@@ -71,9 +76,11 @@ def insights(engine: Engine, days: int = 7, branch: str | None = None) -> dict[s
         failure_rows = conn.execute(select(failures).where(failures.c.run_id.in_(ids))).mappings().all()
         categories: dict[str, int] = {}
         groups: dict[str, dict[str, Any]] = {}
+        projected_per_run: dict[str, int] = {}
         versions: set[tuple[str | None, str | None, str | None]] = set()
         pending = degraded = 0
         for row in failure_rows:
+            projected_per_run[row["run_id"]] = projected_per_run.get(row["run_id"], 0) + 1
             if row["status"] == "pending":
                 pending += 1
                 continue
@@ -87,10 +94,11 @@ def insights(engine: Engine, days: int = 7, branch: str | None = None) -> dict[s
             group = groups.setdefault(key, {"fingerprint": row["fingerprint"],
                                             "example": row["error_message"] or row["test_name"],
                                             "category": category, "count": 0})
+            if group["category"] != category:
+                group["category"] = "mixed"
             group["count"] += 1
-        pending += sum(max(0, (run["failed_tests"] or 0) - sum(
-            1 for item in failure_rows if item["run_id"] == run["run_id"]
-        )) for run in run_rows)
+        pending += sum(max(0, (run["failed_tests"] or 0) -
+                           projected_per_run.get(run["run_id"], 0)) for run in run_rows)
         return {"days": days, "branch": branch, "runs": len(run_rows),
                 "categories": categories, "pending": pending, "degraded": degraded,
                 "top_failures": sorted(groups.values(), key=lambda x: x["count"], reverse=True)[:10],

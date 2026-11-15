@@ -61,12 +61,26 @@ def test_pending_then_classified_and_duplicate_delivery(engine):
         assert conn.scalar(select(func.count()).select_from(failures)) == 1
 
 
+def test_republished_run_with_new_event_id_does_not_duplicate_counts(engine):
+    run_id = "0" * 64
+    first = extracted(run_id)
+    second = extracted(run_id)
+    apply_event(engine, first)
+    apply_event(engine, second)
+    apply_event(engine, classified(run_id))
+    assert insights(engine)["categories"] == {"assertion": 1}
+    with engine.connect() as conn:
+        assert conn.scalar(select(func.count()).select_from(failures)) == 1
+
+
 def test_out_of_order_classification_is_not_overwritten(engine):
     run_id = "b" * 64
     apply_event(engine, classified(run_id))
     apply_event(engine, extracted(run_id))
     assert get_run(engine, run_id)["state"] == "complete"
-    assert get_run(engine, run_id)["failures"][0]["category"] == "assertion"
+    failure = get_run(engine, run_id)["failures"][0]
+    assert failure["category"] == "assertion"
+    assert failure["error_message"] == "expected 2"
 
 
 def test_degraded_is_terminal_and_reported(engine):
@@ -106,3 +120,17 @@ def test_late_older_classification_does_not_replace_newer_result(engine):
     apply_event(engine, newer)
     apply_event(engine, older)
     assert get_run(engine, run_id)["failures"][0]["status"] == "classified"
+
+
+def test_insights_flag_mixed_categories_and_versions(engine):
+    first, second = "2" * 64, "3" * 64
+    for run_id in (first, second):
+        apply_event(engine, extracted(run_id))
+    apply_event(engine, classified(first))
+    changed = classified(second)
+    changed["payload"]["category"] = "timeout"
+    changed["payload"]["versions"]["rules_version"] = "2"
+    apply_event(engine, changed)
+    result = insights(engine)
+    assert result["top_failures"][0]["category"] == "mixed"
+    assert len(result["classifier_versions"]) == 2

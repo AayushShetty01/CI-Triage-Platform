@@ -100,8 +100,9 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/api/runs")
-    def api_runs(limit: int = Query(50, ge=1, le=200)):
-        return list_runs(engine, limit)
+    def api_runs(limit: int = Query(50, ge=1, le=200),
+                 days: int = Query(7, ge=1, le=90), branch: str | None = None):
+        return list_runs(engine, limit, days, branch)
 
     @app.get("/api/runs/{run_id}")
     def api_run(run_id: str):
