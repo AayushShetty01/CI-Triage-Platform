@@ -345,13 +345,20 @@ docker compose up -d --build
 
 To use Ollama installed on your machine instead of the container (no image or
 model download if the model is already pulled), point the services at the host
-and skip the `ollama` dependency:
+and skip the `ollama` dependency. First make sure the host Ollama server is
+running (`curl http://localhost:11434/api/tags`); start it with `ollama serve`
+if needed. Then run:
 
 ```bash
-export OLLAMA_BASE_URL=http://host.docker.internal:11434 OLLAMA_MODEL=llama3.2:1b
-docker compose up -d --build postgres rabbitmq ingestion parser classifier
+ollama pull qwen2.5:1.5b
+export OLLAMA_BASE_URL=http://host.docker.internal:11434 OLLAMA_MODEL=qwen2.5:1.5b
+docker compose up -d --build postgres rabbitmq query ingestion parser classifier
 docker compose up -d --no-deps classifier-llm-worker
 ```
+
+The model tag in `OLLAMA_MODEL` must match one shown by `ollama list`. This host
+mode does not start the Compose `ollama` container, so it also avoids a port
+11434 conflict with the host installation.
 
 The Postgres init scripts run only on a new volume. If your `postgres_data`
 volume predates the classifier, create its role and schema once (or recreate the
@@ -375,4 +382,31 @@ Run the tests (SQLite and a fake Ollama; no Docker needed):
 ```bash
 python -m pip install -r services/classifier/requirements-dev.txt
 cd services/classifier && python -m pytest -c pytest.ini tests
+```
+
+## Query & Insights
+
+Query is the fourth independently deployable business service. It consumes
+`RunReceived`, `FailuresExtracted`, and `FailureClassified` from RabbitMQ into
+its own PostgreSQL schema. It displays accepted reports, pending
+classifications, terminal categories, degraded fallbacks, common failure
+groups, and potentially flaky tests. The dashboard uses the Query API, not
+static sample data. Query reads complete per-run test outcomes through the
+Parser API when it handles `FailuresExtracted`, then owns that history
+projection for subsequent insight requests.
+
+Start the full stack with `docker compose up -d --build`, wait for
+`http://localhost:8005/health` to return 200, and open the UI at
+`http://localhost:8005`. The Query API runs on port 8005. Prometheus is at
+`http://localhost:9090` and the provisioned Grafana dashboard at
+`http://localhost:3000`. See the [Query runbook](docs/runbook/query.md) for
+demonstration and failure recovery steps, and
+[ADR-004](docs/adr/ADR-004-query-history-projection.md) for the ownership and
+consistency trade-off.
+
+Run Query tests without Docker after installing its development requirements:
+
+```bash
+python -m pip install -r services/query/requirements-dev.txt
+cd services/query && python -m pytest -c pytest.ini -q
 ```

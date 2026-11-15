@@ -8,6 +8,7 @@ services:
       INGESTION_DB_PASSWORD: ${INGESTION_DB_PASSWORD:-ingestion_dev}
       PARSER_DB_PASSWORD: ${PARSER_DB_PASSWORD:-parser_dev}
       CLASSIFIER_DB_PASSWORD: ${CLASSIFIER_DB_PASSWORD:-classifier_dev}
+      QUERY_DB_PASSWORD: ${QUERY_DB_PASSWORD:-query_dev}
     ports:
       - "5432:5432"
     volumes:
@@ -15,6 +16,7 @@ services:
       - ./infra/postgres/init-ingestion.sh:/docker-entrypoint-initdb.d/10-ingestion.sh:ro
       - ./infra/postgres/init-parser.sh:/docker-entrypoint-initdb.d/20-parser.sh:ro
       - ./infra/postgres/init-classifier.sh:/docker-entrypoint-initdb.d/30-classifier.sh:ro
+      - ./infra/postgres/init-query.sh:/docker-entrypoint-initdb.d/40-query.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U triage_admin -d triage"]
       interval: 5s
@@ -53,6 +55,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      query:
         condition: service_healthy
     ports:
       - "8001:8001"
@@ -154,6 +158,45 @@ services:
         condition: service_healthy
     ports:
       - "8004:8004"
+
+  query:
+    build:
+      context: ./services/query
+    environment:
+      DATABASE_URL: postgresql+psycopg://query:${QUERY_DB_PASSWORD:-query_dev}@postgres:5432/triage
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-triage}:${RABBITMQ_PASSWORD:-triage_dev}@rabbitmq:5672/
+      PARSER_BASE_URL: http://parser:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "8005:8005"
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-triage_dev}
+    volumes:
+      - ./infra/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/triage.yml:ro
+      - ./infra/monitoring/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/triage.yml:ro
+      - ./infra/monitoring/grafana/ci-triage.json:/var/lib/grafana/dashboards/ci-triage.json:ro
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

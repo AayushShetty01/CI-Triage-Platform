@@ -1,0 +1,20 @@
+{
+  "title": "CI Triage Operations",
+  "uid": "ci-triage-ops",
+  "schemaVersion": 39,
+  "version": 2,
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {"id": 1, "title": "Ingestion requests / second", "type": "timeseries", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}, "targets": [{"expr": "sum(rate(ingest_requests_total[5m]))", "refId": "A"}]},
+    {"id": 2, "title": "HTTP error rate / second", "type": "timeseries", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}, "targets": [{"expr": "sum(rate(ingest_requests_total{status=~\"5..\"}[5m])) + sum(rate(query_http_requests_total{status=~\"5..\"}[5m]))", "refId": "A"}]},
+    {"id": 3, "title": "Ingestion p95 latency", "type": "timeseries", "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(ingest_latency_seconds_bucket[5m])))", "refId": "A"}]},
+    {"id": 4, "title": "Query p95 latency", "type": "timeseries", "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(query_http_latency_seconds_bucket[5m])))", "refId": "A"}]},
+    {"id": 5, "title": "Pending work", "type": "timeseries", "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8}, "targets": [{"expr": "query_pending_failures", "legendFormat": "Query classifications", "refId": "A"}, {"expr": "classifier_llm_jobs_pending", "legendFormat": "LLM jobs", "refId": "B"}, {"expr": "classifier_outbox_pending", "legendFormat": "Classifier outbox", "refId": "C"}]},
+    {"id": 6, "title": "LLM tokens used", "type": "timeseries", "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8}, "targets": [{"expr": "sum by (kind) (classifier_llm_tokens_total)", "legendFormat": "{{kind}}", "refId": "A"}]},
+    {"id": 7, "title": "LLM calls / second", "type": "timeseries", "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8}, "targets": [{"expr": "sum by (outcome) (rate(classifier_llm_requests_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A"}]},
+    {"id": 8, "title": "Query event outcomes / second", "type": "timeseries", "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8}, "targets": [{"expr": "sum by (result) (rate(query_events_total[5m]))", "legendFormat": "{{result}}", "refId": "A"}]},
+    {"id": 9, "title": "Tokens per LLM classification (average)", "type": "timeseries", "gridPos": {"x": 0, "y": 32, "w": 8, "h": 7}, "targets": [{"expr": "sum(classifier_llm_tokens_total) / clamp_min(sum(classifier_classifications_total{source=\"llm\"}), 1)", "refId": "A"}]},
+    {"id": 10, "title": "LLM calls per accepted upload (average)", "type": "timeseries", "gridPos": {"x": 8, "y": 32, "w": 8, "h": 7}, "targets": [{"expr": "sum(classifier_llm_requests_total{outcome!=\"breaker_open\"}) / clamp_min(sum(ingest_requests_total{path=\"/runs\",status=\"202\"}), 1)", "refId": "A"}]},
+    {"id": 11, "title": "LLM cache hit rate", "type": "timeseries", "gridPos": {"x": 16, "y": 32, "w": 8, "h": 7}, "targets": [{"expr": "sum(classifier_classifications_total{source=\"llm_cache\"}) / clamp_min(sum(classifier_classifications_total{source=~\"llm|llm_cache\"}), 1)", "refId": "A"}]}
+  ]
+}
