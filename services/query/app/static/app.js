@@ -1,5 +1,12 @@
 const $ = (selector) => document.querySelector(selector);
 const state = { selectedRun: null };
+const palette = {
+  assertion: "#79dfb6",
+  timeout: "#a8a0fb",
+  infrastructure: "#eec17b",
+  flaky: "#ec99ac",
+  unknown: "#91a8bc"
+};
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -32,6 +39,18 @@ function params() {
   return value;
 }
 
+function updateNavigation() {
+  const sections = { "#overview": "Overview", "#runs": "CI runs", "#insights": "Insights", "#flaky": "Flaky signals" };
+  const selected = sections[location.hash] ? location.hash : "#overview";
+  for (const link of document.querySelectorAll(".nav-links a")) {
+    const active = link.getAttribute("href") === selected;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  }
+  $("#current-section").textContent = sections[selected];
+}
+
 async function json(url) {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
@@ -42,15 +61,34 @@ function renderCategories(data) {
   const target = $("#categories");
   target.replaceChildren();
   const entries = Object.entries(data.categories).sort((a, b) => b[1] - a[1]);
-  if (!entries.length) { target.append(element("p", "empty", "No classified failures in this window.")); return; }
+  const total = entries.reduce((sum, entry) => sum + entry[1], 0);
+  $("#classified-total").textContent = total;
+  $("#category-donut").setAttribute("aria-label", `${total} classified failures by category`);
+  if (!entries.length) {
+    $("#category-donut").style.background = "#304655";
+    target.append(element("p", "empty", "No classified failures in this window."));
+    return;
+  }
+  let offset = 0;
+  const slices = entries.map(([name, count]) => {
+    const start = offset;
+    offset += count / total * 100;
+    return `${palette[name] || palette.unknown} ${start}% ${offset}%`;
+  });
+  $("#category-donut").style.background = `conic-gradient(${slices.join(", ")})`;
   const max = Math.max(...entries.map((entry) => entry[1]));
   for (const [name, count] of entries) {
     const wrap = element("div");
     const title = element("div", "category-head");
-    title.append(element("span", "", name), element("strong", "", count));
+    const label = element("span", "category-name");
+    const swatch = element("span", "swatch");
+    swatch.style.background = palette[name] || palette.unknown;
+    label.append(swatch, document.createTextNode(name));
+    title.append(label, element("strong", "", count));
     const bar = element("div", "bar");
     const fill = element("span");
     fill.style.width = `${Math.round(count / max * 100)}%`;
+    fill.style.background = palette[name] || palette.unknown;
     bar.append(fill); wrap.append(title, bar); target.append(wrap);
   }
 }
@@ -69,38 +107,65 @@ function renderGroups(groups) {
 
 function renderRuns(runs) {
   const target = $("#run-list"); target.replaceChildren();
-  if (!runs.length) { emptyRow(target, 6, "No CI runs have arrived yet."); return; }
+  if (!runs.length) { emptyRow(target, 7, "No CI runs match this window and branch."); return; }
   for (const run of runs) {
-    const row = element("tr"); row.dataset.run = run.run_id; row.tabIndex = 0;
-    row.append(element("td", "mono", run.run_id.slice(0, 12)), element("td", "", run.branch || "—"),
-      element("td", "", run.total_tests ?? "—"), element("td", "", run.failed_tests ?? "—"));
+    const row = element("tr"); row.dataset.run = run.run_id;
+    const runCell = element("td");
+    const link = element("button", "run-link", run.run_id.slice(0, 12));
+    link.type = "button";
+    link.setAttribute("aria-label", `View run ${run.run_id}`);
+    link.addEventListener("click", (event) => { event.stopPropagation(); openRun(run.run_id); });
+    runCell.append(link);
+    const branch = element("td");
+    branch.append(element("span", "branch-pill", run.branch || "—"));
+    row.append(runCell, branch, element("td", "", run.total_tests ?? "—"),
+      element("td", "", run.failed_tests ?? "—"));
     const status = element("td"); status.append(badge(run.state)); row.append(status);
     row.append(element("td", "muted", date(run.received_at || run.parsed_at)));
+    const arrow = element("td");
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("class", "table-arrow");
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttribute("href", "#icon-arrow");
+    icon.append(use); arrow.append(icon); row.append(arrow);
     row.addEventListener("click", () => openRun(run.run_id));
-    row.addEventListener("keydown", (event) => { if (event.key === "Enter") openRun(run.run_id); });
     target.append(row);
   }
 }
 
 function renderFlaky(candidates) {
   const target = $("#flaky-list"); target.replaceChildren();
-  if (!candidates.length) { emptyRow(target, 3, "No candidates in this window."); return; }
+  if (!candidates.length) { emptyRow(target, 4, "No candidates in this window."); return; }
   for (const test of candidates) {
     const row = element("tr");
+    const assessment = element("td");
+    assessment.append(element("span", "signal", "Potentially flaky"));
     row.append(element("td", "mono", test.test_id), element("td", "", test.passed_runs),
-      element("td", "", test.failed_runs)); target.append(row);
+      element("td", "", test.failed_runs), assessment);
+    target.append(row);
   }
 }
 
-async function openRun(runId) {
+async function openRun(runId, reveal = true) {
   state.selectedRun = runId;
-  const run = await json(`/api/runs/${encodeURIComponent(runId)}`);
+  let run;
+  try {
+    run = await json(`/api/runs/${encodeURIComponent(runId)}`);
+  } catch (error) {
+    $("#error").textContent = `Unable to open run: ${error.message}`;
+    $("#error").hidden = false;
+    return;
+  }
   if (state.selectedRun !== runId) return;
   $("#run-detail").hidden = false;
   $("#detail-title").textContent = `Run ${runId.slice(0, 12)}`;
   $("#detail-subtitle").textContent = `${run.branch || "Unknown branch"} · ${run.state} · ${run.classification_counts.pending} pending`;
   const target = $("#failure-list"); target.replaceChildren();
-  if (!run.failures.length) { emptyRow(target, 6, run.parsed_at ? "No failures in this run." : "Waiting for the Parser."); return; }
+  if (!run.failures.length) {
+    emptyRow(target, 6, run.parsed_at ? "No failures in this run." : "Waiting for the Parser.");
+    if (reveal) $("#run-detail").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   for (const failure of run.failures) {
     const row = element("tr");
     const version = failure.rules_version ? `rules ${failure.rules_version}${failure.prompt_version ? ` · prompt ${failure.prompt_version}` : ""}` : "—";
@@ -109,6 +174,7 @@ async function openRun(runId) {
     const status = element("td"); status.append(badge(failure.status)); row.append(status);
     row.append(element("td", "", failure.source || "—"), element("td", "", version)); target.append(row);
   }
+  if (reveal) $("#run-detail").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function refresh() {
@@ -128,13 +194,18 @@ async function refresh() {
         : "Classification versions are preserved per result.";
     renderCategories(overview); renderGroups(overview.top_failures);
     renderRuns(runs); renderFlaky(flaky.candidates);
-    if (state.selectedRun) await openRun(state.selectedRun);
+    if (state.selectedRun) await openRun(state.selectedRun, false);
     $("#connection").textContent = "Live";
     $("#connection").classList.remove("offline");
+    $("#system-status").classList.remove("offline");
+    $("#system-status-text").textContent = "Connected";
+    $("#last-updated").textContent = `Updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
     $("#error").hidden = true;
   } catch (error) {
     $("#connection").textContent = "Unavailable";
     $("#connection").classList.add("offline");
+    $("#system-status").classList.add("offline");
+    $("#system-status-text").textContent = "Unavailable";
     $("#error").textContent = `Unable to load current data: ${error.message}`;
     $("#error").hidden = false;
   }
@@ -143,5 +214,8 @@ async function refresh() {
 $("#refresh").addEventListener("click", refresh);
 $("#window").addEventListener("change", refresh);
 $("#branch").addEventListener("change", refresh);
+$("#branch").addEventListener("keydown", (event) => { if (event.key === "Enter") refresh(); });
 $("#close-detail").addEventListener("click", () => { state.selectedRun = null; $("#run-detail").hidden = true; });
+window.addEventListener("hashchange", updateNavigation);
+updateNavigation();
 refresh(); setInterval(refresh, 10000);

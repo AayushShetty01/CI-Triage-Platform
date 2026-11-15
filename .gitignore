@@ -7,3 +7,4 @@ __pycache__/
 !/services/ingestion/failure_simulation/evidence/example/**
 .env
 .venv/
+.DS_Store
