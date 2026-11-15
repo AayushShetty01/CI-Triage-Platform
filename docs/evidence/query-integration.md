@@ -12,6 +12,7 @@ These checks used the local Docker Compose stack on a development laptop with sy
 | Operations metrics | Prometheus reported `up` for Ingestion, Parser, Classifier, Classifier worker, and Query. Grafana API returned the provisioned `ci-triage-ops` dashboard. |
 | Error-case contract | After rebuilding Query with the upstream services, run `25f01a223d88` containing one JUnit `<error>` and one passed test showed `total_tests=2`, `failed_tests=1`, `passed_tests=1`, and a terminal `timeout` category. |
 | Startup ordering | Compose created and marked Query healthy before starting Ingestion. Query health requires its durable queue to be bound, so a fresh stack cannot accept a report before Query subscribes. |
+| Legal JUnit without `classname` | Run `e4260e9794f7` was parsed with `class_name=audit` (Parser's suite fallback), classified as `assertion`, and displayed by Query as `complete` after the stricter event validation was deployed. |
 
 The local automated Query suite passed 15 tests covering projection idempotency, out-of-order classification, pending/terminal/degraded states, flaky candidates, version mixing, invalid categories and payloads, Parser history lookup, retry on Parser outage, malformed Parser responses, and poison events. `docker compose config --quiet`, JavaScript syntax checking and Grafana JSON validation also passed.
 
