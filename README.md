@@ -271,3 +271,108 @@ The `FailuresExtracted` event contract is owned by Parser. See the
 [sample](contracts/events/samples/failures_extracted.json).
 
 
+
+## Classifier
+
+Classifier consumes `FailuresExtracted` (queue `classifier.failures_extracted`,
+routing key `failures.extracted`), classifies each failed test, and publishes one
+`FailureClassified` event per failure (routing key `failure.classified`) through
+its own transactional outbox. Categories are `assertion`, `timeout`,
+`infrastructure`, `flaky`, and `unknown`.
+
+### How a failure is classified
+
+1. **Fingerprint.** The error type, the message with volatile tokens (numbers,
+   ids, UUIDs, IPs, quoted values) replaced, and the innermost stack frame are
+   hashed. Failures with the same fingerprint form a group (`GET /groups`).
+   See [`fingerprint.py`](services/classifier/app/fingerprint.py).
+2. **Rules first.** An ordered rule list ([`rules.py`](services/classifier/app/rules.py))
+   handles the common cases immediately (`source=rule`). Failures with no type,
+   message or stack are `unknown` without an LLM call.
+3. **LLM fallback.** Anything left becomes a job in `classifier.llm_jobs`, keyed by
+   `(fingerprint, model, prompt_version)`. The consumer never calls the LLM; it
+   only queues work and records the failure as `pending`.
+4. **Worker pool.** The `classifier-llm-worker` container claims jobs
+   (`FOR UPDATE SKIP LOCKED` with a lease, so a crashed worker's job is
+   reclaimed), calls Ollama behind a circuit breaker, and finishes every pending
+   failure attached to the job in one transaction (`source=llm`).
+5. **Cache.** A finished job answers later failures with the same fingerprint
+   without calling the model (`source=llm_cache`). One LLM call covers a whole group.
+
+### Reliability and degradation
+
+- LLM timeouts or errors are retried with exponential backoff up to
+  `LLM_MAX_ATTEMPTS`; after that the failures are marked **degraded**
+  (`category=unknown`, `source=fallback`) and an event is still published.
+- After `BREAKER_FAILURE_THRESHOLD` consecutive failures the breaker opens and no
+  calls are made for `BREAKER_RESET_SECONDS`; one trial call then decides whether
+  it closes. Jobs that wait longer than `LLM_DEGRADE_AFTER_SECONDS` while the LLM
+  is failing are degraded, so nothing stays pending indefinitely. A job that is
+  merely queued behind others with a healthy LLM is not degraded.
+- A degraded fingerprint gets a fresh LLM attempt the next time it occurs.
+- `LLM_ENABLED=false` runs rules only; unmatched failures are degraded.
+- Duplicate `FailuresExtracted` deliveries are ignored (`processed_events` and
+  a unique `(run_id, test_id)`). Malformed messages go to
+  `classifier.failures_extracted.dlq`.
+- The relay uses `on_return_raises`, so an event with no bound consumer queue
+  stays in the outbox and is retried rather than being confirmed and dropped.
+
+### LLM safety, determinism, and versioning
+
+- Test logs are untrusted. They are stripped of control characters and of our
+  delimiter tokens, truncated (`LLM_MAX_INPUT_CHARS`), and placed inside fixed
+  delimiters the system prompt marks as data. Instruction-like text is counted
+  (`classifier_llm_prompt_injection_suspected_total`) and still only classified.
+- The model has no tools. Its reply is constrained with a JSON schema in the
+  Ollama request and validated again; only a value from the category list is
+  used. Invalid output becomes `unknown`.
+- `temperature=0`, a fixed seed, and a prompt with no per-call randomness.
+- Every classification stores `rules_version`, `model`, `prompt_version`, and
+  `prompt_hash`. Changing the model or prompt version creates new jobs instead of
+  reusing old results.
+- Cost is visible in `classifier_llm_tokens_total` and
+  `classifier_llm_latency_seconds`; grouping and the cache limit the calls made.
+
+### Running it
+
+The Compose stack adds `classifier` (port `8003`: API, consumer, relay),
+`classifier-llm-worker` (port `8004`), `ollama`, and a one-shot `ollama-pull`
+that downloads `OLLAMA_MODEL` (default `qwen2.5:1.5b`, about 1 GB) into a volume.
+
+```bash
+docker compose up -d --build
+```
+
+To use Ollama installed on your machine instead of the container (no image or
+model download if the model is already pulled), point the services at the host
+and skip the `ollama` dependency:
+
+```bash
+export OLLAMA_BASE_URL=http://host.docker.internal:11434 OLLAMA_MODEL=llama3.2:1b
+docker compose up -d --build postgres rabbitmq ingestion parser classifier
+docker compose up -d --no-deps classifier-llm-worker
+```
+
+The Postgres init scripts run only on a new volume. If your `postgres_data`
+volume predates the classifier, create its role and schema once (or recreate the
+volume with `docker compose down -v`, which deletes all local data):
+
+```bash
+docker compose exec postgres sh /docker-entrypoint-initdb.d/30-classifier.sh
+```
+
+Endpoints:
+
+- `GET /runs/{run_id}/classifications`: per-failure results and status counts
+  (`pending`, `classified`, `degraded`).
+- `GET /groups`: failure groups, most frequent first, with the latest category.
+- `GET /llm/status`: model, prompt and rules versions, job counts, and (on the
+  worker, port `8004`) the circuit breaker state.
+- `GET /health`, `GET /metrics`.
+
+Run the tests (SQLite and a fake Ollama; no Docker needed):
+
+```bash
+python -m pip install -r services/classifier/requirements-dev.txt
+cd services/classifier && python -m pytest -c pytest.ini tests
+```
