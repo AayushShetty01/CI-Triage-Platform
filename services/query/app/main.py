@@ -29,7 +29,8 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        metadata.create_all(engine)
+        if engine.dialect.name == "sqlite":
+            metadata.create_all(engine)
         ready = asyncio.Event()
         app.state.consumer_ready = ready
         task = None

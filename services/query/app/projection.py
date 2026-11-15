@@ -124,6 +124,8 @@ def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[s
             conn.execute(stmt.on_conflict_do_update(
                 index_elements=["run_id", "test_id"],
                 set_={key: value for key, value in values.items() if key not in {"run_id", "test_id"}},
+                where=(failures.c.classified_at.is_(None) |
+                       (stmt.excluded.classified_at >= failures.c.classified_at)),
             ))
     return True
 

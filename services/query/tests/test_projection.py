@@ -96,3 +96,13 @@ def test_invalid_classification_is_rejected(engine):
     item["payload"]["category"] = "run_shell_command"
     with pytest.raises(ValueError):
         apply_event(engine, item)
+
+
+def test_late_older_classification_does_not_replace_newer_result(engine):
+    run_id = "1" * 64
+    newer = classified(run_id)
+    older = classified(run_id, "degraded")
+    older["occurred_at"] = "2020-01-01T00:00:00+00:00"
+    apply_event(engine, newer)
+    apply_event(engine, older)
+    assert get_run(engine, run_id)["failures"][0]["status"] == "classified"
