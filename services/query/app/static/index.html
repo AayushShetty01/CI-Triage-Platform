@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CI Triage · Insights</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">CI</span><span>TRIAGE <small>PLATFORM</small></span></div>
+    <div class="top-actions"><span id="connection" class="connection">Connecting</span><button id="refresh" type="button">Refresh</button></div>
+  </header>
+  <main>
+    <section class="hero">
+      <div><div class="eyebrow">OPERATIONS OVERVIEW</div><h1>Failure intelligence</h1><p>Track CI runs from report receipt through classification, and find recurring causes across your tests.</p></div>
+      <div class="filters"><label>Window<select id="window"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30">Last 30 days</option></select></label><label>Branch<input id="branch" placeholder="All branches" maxlength="255"></label></div>
+    </section>
+    <div id="error" role="alert" hidden></div>
+    <section class="stats" aria-label="Overview">
+      <article class="stat"><span>RUNS</span><strong id="runs-count">—</strong><small>In selected window</small></article>
+      <article class="stat"><span>CLASSIFICATIONS PENDING</span><strong id="pending-count">—</strong><small>Awaiting a final result</small></article>
+      <article class="stat"><span>DEGRADED</span><strong id="degraded-count">—</strong><small>Model fallback used</small></article>
+      <article class="stat"><span>POTENTIALLY FLAKY</span><strong id="flaky-count">—</strong><small>Passed and failed in history</small></article>
+    </section>
+    <div class="grid">
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">DISTRIBUTION</span><h2>Failure categories</h2></div></div><div id="categories" class="categories"><p class="empty">Loading categories…</p></div></section>
+      <section class="panel"><div class="panel-head"><div><span class="eyebrow">RECURRENCE</span><h2>Most common failures</h2></div></div><div id="top-failures"><p class="empty">Loading groups…</p></div></section>
+    </div>
+    <section class="panel"><div class="panel-head"><div><span class="eyebrow">RECENT ACTIVITY</span><h2>CI runs</h2></div><span class="hint">Select a run for its classifications</span></div><div class="table-wrap"><table><thead><tr><th>Run</th><th>Branch</th><th>Tests</th><th>Failures</th><th>Status</th><th>Received</th></tr></thead><tbody id="run-list"><tr><td colspan="6" class="empty">Loading runs…</td></tr></tbody></table></div></section>
+    <section id="run-detail" class="panel" hidden><div class="panel-head"><div><span class="eyebrow">RUN DETAIL</span><h2 id="detail-title">Classification progress</h2></div><button id="close-detail" type="button" aria-label="Close run detail">Close</button></div><p id="detail-subtitle" class="hint"></p><div class="table-wrap"><table><thead><tr><th>Test</th><th>Error</th><th>Category</th><th>Status</th><th>Source</th><th>Version</th></tr></thead><tbody id="failure-list"></tbody></table></div></section>
+    <section class="panel"><div class="panel-head"><div><span class="eyebrow">HISTORY SIGNAL</span><h2>Potentially flaky tests</h2></div><span class="hint">Candidate signal, not proof of flakiness</span></div><div class="table-wrap"><table><thead><tr><th>Test</th><th>Passed runs</th><th>Failed runs</th></tr></thead><tbody id="flaky-list"><tr><td colspan="3" class="empty">Loading test history…</td></tr></tbody></table></div></section>
+    <footer>Classification versions are preserved per result. A selected window may contain results from multiple versions. Data refreshes every 10 seconds.</footer>
+  </main>
+</body>
+</html>
