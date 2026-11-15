@@ -345,13 +345,20 @@ docker compose up -d --build
 
 To use Ollama installed on your machine instead of the container (no image or
 model download if the model is already pulled), point the services at the host
-and skip the `ollama` dependency:
+and skip the `ollama` dependency. First make sure the host Ollama server is
+running (`curl http://localhost:11434/api/tags`); start it with `ollama serve`
+if needed. Then run:
 
 ```bash
-export OLLAMA_BASE_URL=http://host.docker.internal:11434 OLLAMA_MODEL=llama3.2:1b
-docker compose up -d --build postgres rabbitmq ingestion parser classifier
+ollama pull qwen2.5:1.5b
+export OLLAMA_BASE_URL=http://host.docker.internal:11434 OLLAMA_MODEL=qwen2.5:1.5b
+docker compose up -d --build postgres rabbitmq query ingestion parser classifier
 docker compose up -d --no-deps classifier-llm-worker
 ```
+
+The model tag in `OLLAMA_MODEL` must match one shown by `ollama list`. This host
+mode does not start the Compose `ollama` container, so it also avoids a port
+11434 conflict with the host installation.
 
 The Postgres init scripts run only on a new volume. If your `postgres_data`
 volume predates the classifier, create its role and schema once (or recreate the
