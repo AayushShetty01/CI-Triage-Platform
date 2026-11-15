@@ -2,7 +2,7 @@
 
 ## Start and inspect
 
-From the repository root, copy `.env.example` to `.env` and run `docker compose up -d --build`. Open the triage UI at `http://localhost:8005`, Query health at `http://localhost:8005/health`, Prometheus at `http://localhost:9090`, and Grafana at `http://localhost:3000` (default development login `admin` / `triage_dev`). Grafana provisions **CI Triage Operations** with request rate, HTTP errors, p95 latency, pending work, LLM tokens and model calls.
+From the repository root, copy `.env.example` to `.env` and run `docker compose up -d --build`. Open the triage UI at `http://localhost:8005`, Query health at `http://localhost:8005/health`, Prometheus at `http://localhost:9090`, and Grafana at `http://localhost:3000` (default development login `admin` / `triage_dev`). Grafana provisions **CI Triage Operations** with request rate, HTTP errors, p95 latency, pending work, LLM tokens and model calls. It also shows fleet-wide average tokens per LLM classification, calls per accepted upload and cache hit rate. The calls denominator is accepted HTTP uploads, including duplicate submissions; it is an operational proxy rather than an exact per-unique-report metric.
 
 Query owns the `query` PostgreSQL schema and subscribes to `run.received`, `failures.extracted`, and `failure.classified` via the durable `query.events` queue. It is healthy only after its queue is bound. Wait for `/health` to return 200 before uploading the first report. On a PostgreSQL volume created before Query existed, run `docker compose exec postgres sh /docker-entrypoint-initdb.d/40-query.sh` once to create the role and schema.
 
