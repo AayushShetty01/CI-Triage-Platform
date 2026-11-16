@@ -100,14 +100,14 @@ function renderGroups(groups) {
     const row = element("div", "group");
     const detail = element("div", "name", group.example || group.fingerprint || "Unknown failure");
     detail.title = group.example || "";
-    detail.append(element("small", "", group.category));
+    detail.append(element("small", "", `${group.category} · ${group.fingerprint || "unfingerprinted"}`));
     row.append(detail, element("span", "count", group.count)); target.append(row);
   }
 }
 
 function renderRuns(runs) {
   const target = $("#run-list"); target.replaceChildren();
-  if (!runs.length) { emptyRow(target, 7, "No CI runs match this window and branch."); return; }
+  if (!runs.length) { emptyRow(target, 10, "No CI runs match this window and branch."); return; }
   for (const run of runs) {
     const row = element("tr"); row.dataset.run = run.run_id;
     const runCell = element("td");
@@ -116,10 +116,17 @@ function renderRuns(runs) {
     link.setAttribute("aria-label", `View run ${run.run_id}`);
     link.addEventListener("click", (event) => { event.stopPropagation(); openRun(run.run_id); });
     runCell.append(link);
+    const ci = run.ci_metadata || {};
+    const serviceCell = element("td");
+    serviceCell.append(element("span", "branch-pill", ci.service || "—"));
+    if (ci.workflow) serviceCell.append(element("small", "muted", ci.workflow));
     const branch = element("td");
     branch.append(element("span", "branch-pill", run.branch || "—"));
-    row.append(runCell, branch, element("td", "", run.total_tests ?? "—"),
-      element("td", "", run.failed_tests ?? "—"));
+    branch.append(element("small", "mono muted", (run.commit_sha || "").slice(0, 8)));
+    const counts = run.test_counts;
+    row.append(runCell, serviceCell, branch, element("td", "", counts.total),
+      element("td", "", counts.passed), element("td", "", counts.failed),
+      element("td", "", counts.skipped));
     const status = element("td"); status.append(badge(run.state)); row.append(status);
     row.append(element("td", "muted", date(run.received_at || run.parsed_at)));
     const arrow = element("td");
@@ -129,6 +136,20 @@ function renderRuns(runs) {
     use.setAttribute("href", "#icon-arrow");
     icon.append(use); arrow.append(icon); row.append(arrow);
     row.addEventListener("click", () => openRun(run.run_id));
+    target.append(row);
+  }
+}
+
+function renderServices(services) {
+  const target = $("#service-list");
+  target.replaceChildren();
+  if (!services.length) { emptyRow(target, 7, "No service runs match this window and branch."); return; }
+  for (const service of services) {
+    const row = element("tr");
+    row.append(element("td", "", service.service), element("td", "", service.runs),
+      element("td", "", service.tests), element("td", "", service.passed),
+      element("td", "", service.failed), element("td", "", service.skipped),
+      element("td", "", service.failures));
     target.append(row);
   }
 }
@@ -159,10 +180,28 @@ async function openRun(runId, reveal = true) {
   if (state.selectedRun !== runId) return;
   $("#run-detail").hidden = false;
   $("#detail-title").textContent = `Run ${runId.slice(0, 12)}`;
-  $("#detail-subtitle").textContent = `${run.branch || "Unknown branch"} · ${run.state} · ${run.classification_counts.pending} pending`;
+  const ci = run.ci_metadata || {};
+  $("#detail-subtitle").textContent = [
+    run.branch || "Unknown branch",
+    run.commit_sha || "Unknown commit",
+    ci.workflow || "CI run",
+    ci.repository || "",
+    ci.actor ? `by ${ci.actor}` : "",
+    run.state,
+    `${run.classification_counts.pending} pending`,
+  ].filter(Boolean).join(" · ");
+  const ciLink = $("#detail-ci-link");
+  ciLink.replaceChildren();
+  if (ci.run_url) {
+    const link = element("a", "", `Open GitHub Actions run${ci.service ? ` · ${ci.service}` : ""}`);
+    link.href = ci.run_url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    ciLink.append(link);
+  }
   const target = $("#failure-list"); target.replaceChildren();
   if (!run.failures.length) {
-    emptyRow(target, 6, run.parsed_at ? "No failures in this run." : "Waiting for the Parser.");
+    emptyRow(target, 7, run.parsed_at ? "No failures in this run." : "Waiting for the Parser.");
     if (reveal) $("#run-detail").scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
@@ -170,7 +209,8 @@ async function openRun(runId, reveal = true) {
     const row = element("tr");
     const version = failure.rules_version ? `rules ${failure.rules_version}${failure.prompt_version ? ` · prompt ${failure.prompt_version}` : ""}` : "—";
     row.append(element("td", "mono", failure.test_id), element("td", "", failure.error_message || failure.error_type || "—"),
-      element("td", "", failure.category || "—"));
+      element("td", "", failure.category || "—"),
+      element("td", "", failure.confidence == null ? "—" : `${Math.round(failure.confidence * 100)}%`));
     const status = element("td"); status.append(badge(failure.status)); row.append(status);
     row.append(element("td", "", failure.source || "—"), element("td", "", version)); target.append(row);
   }
@@ -186,6 +226,10 @@ async function refresh() {
     $("#pending-count").textContent = overview.pending;
     $("#degraded-count").textContent = overview.degraded;
     $("#flaky-count").textContent = flaky.candidates.length;
+    $("#tests-count").textContent = overview.test_counts.total;
+    $("#passed-count").textContent = overview.test_counts.passed;
+    $("#failed-count").textContent = overview.test_counts.failed;
+    $("#skipped-count").textContent = overview.test_counts.skipped;
     const versions = overview.classifier_versions || [];
     $("#versions-note").textContent = versions.length > 1
       ? `This window mixes ${versions.length} classifier versions; compare categories with care.`
@@ -193,6 +237,7 @@ async function refresh() {
         ? `Classifier: rules ${versions[0].rules_version}, model ${versions[0].model || "none"}, prompt ${versions[0].prompt_version || "none"}.`
         : "Classification versions are preserved per result.";
     renderCategories(overview); renderGroups(overview.top_failures);
+    renderServices(overview.services);
     renderRuns(runs); renderFlaky(flaky.candidates);
     if (state.selectedRun) await openRun(state.selectedRun, false);
     $("#connection").textContent = "Live";

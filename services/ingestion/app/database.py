@@ -23,6 +23,7 @@ runs = Table(
     Column("received_at", DateTime(timezone=True), nullable=False),
     Column("raw_xml", LargeBinary, nullable=False),
     Column("status", String(32), nullable=False),
+    Column("ci_metadata", JSON().with_variant(JSONB, "postgresql")),
 )
 
 outbox = Table(

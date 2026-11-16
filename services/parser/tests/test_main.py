@@ -33,7 +33,7 @@ def test_metrics_endpoint(parser_client):
 def test_get_run_and_results(parser_client):
     client, engine = parser_client
     now = datetime.now(timezone.utc)
-    run_id = "testrun0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+    run_id = "a" * 64
 
     with engine.begin() as conn:
         conn.execute(

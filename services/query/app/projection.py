@@ -4,6 +4,7 @@
 from datetime import datetime, timezone
 import re
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from sqlalchemy import select
@@ -60,6 +61,26 @@ def validate_event(event: dict[str, Any]) -> None:
     require_text(payload.get("branch"), "branch", 255)
     if event["event_type"] == "RunReceived" and payload.get("received_at") is not None:
         parse_time(payload["received_at"])
+    if event["event_type"] == "RunReceived" and payload.get("ci") is not None:
+        ci = payload["ci"]
+        if not isinstance(ci, dict):
+            raise ValueError("Invalid CI metadata")
+        ci_fields = {
+            "repository": 255,
+            "workflow": 255,
+            "run_id": 255,
+            "run_attempt": 16,
+            "service": 128,
+            "actor": 255,
+            "run_url": 2048,
+            "timestamp": 64,
+        }
+        for field, maximum in ci_fields.items():
+            require_text(ci.get(field), f"ci.{field}", maximum)
+        run_url = urlsplit(ci["run_url"])
+        if run_url.scheme != "https" or not run_url.netloc:
+            raise ValueError("Invalid ci.run_url")
+        parse_time(ci["timestamp"])
     if event["event_type"] == "FailuresExtracted":
         for field in ("total_tests", "failed_tests", "passed_tests", "skipped_tests"):
             value = payload.get(field)
@@ -89,6 +110,13 @@ def validate_event(event: dict[str, Any]) -> None:
             raise ValueError("Invalid classification status or test_id")
         if not isinstance(payload.get("category"), str) or payload["category"] not in CATEGORIES:
             raise ValueError("Invalid category")
+        confidence = payload.get("confidence")
+        if confidence is not None and (
+            isinstance(confidence, bool)
+            or not isinstance(confidence, (int, float))
+            or not 0 <= confidence <= 1
+        ):
+            raise ValueError("Invalid confidence")
         if not isinstance(payload.get("fingerprint"), str) or not FINGERPRINT.fullmatch(payload["fingerprint"]):
             raise ValueError("Invalid fingerprint")
         if not isinstance(payload.get("versions"), dict):
@@ -109,8 +137,10 @@ def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[s
     with engine.begin() as conn:
         marker = insert_for(conn, processed_events).values(
             event_id=event["event_id"], event_type=kind, processed_at=datetime.now(timezone.utc)
-        ).on_conflict_do_nothing(index_elements=["event_id"])
-        if conn.execute(marker).rowcount == 0:
+        ).on_conflict_do_nothing(index_elements=["event_id"]).returning(
+            processed_events.c.event_id
+        )
+        if conn.execute(marker).scalar_one_or_none() is None:
             return False
 
         run_values: dict[str, Any] = {"run_id": run_id}
@@ -118,6 +148,7 @@ def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[s
             run_values.update(commit_sha=payload.get("commit_sha"), branch=payload.get("branch"))
         if kind == "RunReceived":
             run_values["received_at"] = parse_time(payload.get("received_at", event["occurred_at"]))
+            run_values["ci_metadata"] = payload.get("ci")
         elif kind == "FailuresExtracted":
             run_values.update(
                 parsed_at=occurred_at,
@@ -171,6 +202,7 @@ def apply_event(engine: Engine, event: dict[str, Any], test_results: list[dict[s
                 "fingerprint": payload.get("fingerprint"),
                 "category": payload["category"], "status": payload["status"],
                 "source": payload.get("source"),
+                "confidence": payload.get("confidence"),
                 "rules_version": versions.get("rules_version"),
                 "model": versions.get("model"),
                 "prompt_version": versions.get("prompt_version"),

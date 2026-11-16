@@ -10,6 +10,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import AsyncGenerator
+from urllib.parse import urlsplit
 from xml.etree.ElementTree import ParseError
 
 from defusedxml import ElementTree as SafeET
@@ -242,11 +243,47 @@ def _insert_for_dialect(connection, table, values):
     return connection.execute(statement)
 
 
+def _ci_metadata(request: Request) -> dict[str, str] | None:
+    fields = {
+        "repository": ("x-ci-repository", 255),
+        "workflow": ("x-ci-workflow", 255),
+        "run_id": ("x-ci-run-id", 255),
+        "run_attempt": ("x-ci-run-attempt", 16),
+        "service": ("x-ci-service", 128),
+        "actor": ("x-ci-actor", 255),
+        "run_url": ("x-ci-run-url", 2048),
+        "timestamp": ("x-ci-timestamp", 64),
+    }
+    metadata: dict[str, str] = {}
+    for field, (header, maximum) in fields.items():
+        value = request.headers.get(header)
+        if value is None:
+            continue
+        value = value.strip()
+        if not value or len(value) > maximum:
+            raise HTTPException(status_code=400, detail=f"Invalid CI metadata: {field}")
+        metadata[field] = value
+    if metadata and len(metadata) != len(fields):
+        raise HTTPException(status_code=400, detail="CI metadata must include every field")
+    if metadata:
+        run_url = urlsplit(metadata["run_url"])
+        if run_url.scheme != "https" or not run_url.netloc:
+            raise HTTPException(status_code=400, detail="Invalid CI metadata: run_url")
+        try:
+            timestamp = datetime.fromisoformat(metadata["timestamp"].replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid CI metadata: timestamp") from exc
+        if timestamp.tzinfo is None:
+            raise HTTPException(status_code=400, detail="Invalid CI metadata: timestamp")
+    return metadata or None
+
+
 def _store_run(
     engine: Engine,
     raw_xml: bytes,
     commit_sha: str,
     branch: str,
+    ci_metadata: dict[str, str] | None = None,
 ) -> tuple[str, int, datetime | None, bool]:
     run_id = hashlib.sha256(commit_sha.encode("utf-8") + raw_xml).hexdigest()
     run_id_context.set(run_id)
@@ -265,6 +302,8 @@ def _store_run(
             "raw_ref": f"/internal/runs/{run_id}/raw",
         },
     }
+    if ci_metadata is not None:
+        payload["payload"]["ci"] = ci_metadata
     with engine.begin() as connection:
         result = _insert_for_dialect(
             connection,
@@ -276,6 +315,7 @@ def _store_run(
                 "received_at": received_at,
                 "raw_xml": raw_xml,
                 "status": "received",
+                "ci_metadata": ci_metadata,
             },
         )
         created = result.scalar_one_or_none() is not None
@@ -450,12 +490,14 @@ def create_app(
             request,
             request.app.state.max_report_size_bytes,
         )
+        ci_metadata = _ci_metadata(request)
         try:
             run_id, pending_count, oldest_pending_created_at, created = _store_run(
                 request.app.state.engine,
                 raw_xml,
                 commit_sha,
                 branch,
+                ci_metadata,
             )
         except SQLAlchemyError as exc:
             logger.exception("Failed to store ingested run")

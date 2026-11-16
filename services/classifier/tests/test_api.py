@@ -7,7 +7,8 @@ from app.main import create_app
 from tests.conftest import RUN_A, failure, failures_extracted
 
 
-def test_api_endpoints(settings, fake_ollama):
+def test_api_endpoints(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     app = create_app(settings, llm_transport=fake_ollama.transport)
     with TestClient(app) as client:
         engine = app.state.engine

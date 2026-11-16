@@ -335,6 +335,7 @@ async def run_consumer(
     engine: Engine,
     settings: Settings,
     stop_event: asyncio.Event | None = None,
+    ready_event: asyncio.Event | None = None,
 ) -> None:
     connection: aio_pika.abc.AbstractRobustConnection | None = None
     while stop_event is None or not stop_event.is_set():
@@ -363,6 +364,8 @@ async def run_consumer(
                 QUEUE_NAME,
                 extra={"event": "classifier_consumer_started"},
             )
+            if ready_event is not None:
+                ready_event.set()
             async with queue.iterator() as queue_iter:
                 async for message in queue_iter:
                     if stop_event is not None and stop_event.is_set():
@@ -376,5 +379,7 @@ async def run_consumer(
             )
             await asyncio.sleep(5.0)
         finally:
+            if ready_event is not None:
+                ready_event.clear()
             if connection is not None and not connection.is_closed:
                 await connection.close()

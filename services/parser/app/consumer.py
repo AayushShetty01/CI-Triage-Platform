@@ -272,6 +272,7 @@ async def run_consumer(
     ingestion_client: IngestionClient,
     metrics: dict[str, Any] | None = None,
     stop_event: asyncio.Event | None = None,
+    ready_event: asyncio.Event | None = None,
 ) -> None:
     """Connect to RabbitMQ and continuously consume RunReceived messages."""
     connection: aio_pika.abc.AbstractRobustConnection | None = None
@@ -310,6 +311,8 @@ async def run_consumer(
 
             await queue.bind(exchange, routing_key=ROUTING_KEY_RUN_RECEIVED)
             logger.info("Bound queue %s to %s with routing_key %s", QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY_RUN_RECEIVED)
+            if ready_event is not None:
+                ready_event.set()
 
             async with queue.iterator() as queue_iter:
                 async for message in queue_iter:
@@ -324,5 +327,7 @@ async def run_consumer(
             logger.exception("Consumer encountered unexpected error, reconnecting in 5s...")
             await asyncio.sleep(5.0)
         finally:
+            if ready_event is not None:
+                ready_event.clear()
             if connection is not None and not connection.is_closed:
                 await connection.close()

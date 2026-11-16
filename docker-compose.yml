@@ -56,6 +56,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      parser:
+        condition: service_healthy
+      classifier:
+        condition: service_healthy
       query:
         condition: service_healthy
     ports:
@@ -78,8 +82,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      ingestion:
-        condition: service_started
     ports:
       - "8002:8002"
 
@@ -153,9 +155,14 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       classifier:
-        condition: service_started
+        condition: service_healthy
       ollama:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     ports:
       - "8004:8004"
 
@@ -170,6 +177,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      parser:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]

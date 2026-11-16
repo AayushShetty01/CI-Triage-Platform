@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 /artifacts/
+/reports/
 /services/ingestion/failure_simulation/evidence/*
 !/services/ingestion/failure_simulation/evidence/example/
 !/services/ingestion/failure_simulation/evidence/example/**

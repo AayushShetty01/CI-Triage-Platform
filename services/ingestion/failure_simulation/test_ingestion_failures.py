@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,7 +7,7 @@ from xml.etree import ElementTree
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from app.database import metadata
 from app.main import create_app
@@ -387,14 +388,13 @@ def _write_artifacts(
 
 
 @pytest.fixture
-def ingestion_client(tmp_path: Path):
-    database_url = f"sqlite:///{tmp_path / 'failure-simulation.db'}"
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"ingestion": None}},
-    )
-    metadata.create_all(engine)
+def ingestion_client():
+    database_url = os.environ["DATABASE_URL"]
+    engine = create_engine(database_url, pool_pre_ping=True)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS ingestion"))
+        metadata.drop_all(connection)
+        metadata.create_all(connection)
     app = create_app(
         database_url=database_url,
         enable_relay=False,

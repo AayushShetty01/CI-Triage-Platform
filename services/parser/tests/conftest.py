@@ -1,6 +1,8 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from app.database import metadata
 from app.main import create_app
@@ -52,15 +54,13 @@ MALFORMED_XML = b"""<testsuite name="broken"
 
 
 @pytest.fixture
-def parser_test_db(tmp_path):
-    db_file = tmp_path / "parser-test.db"
-    database_url = f"sqlite:///{db_file}"
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"parser": None}},
-    )
-    metadata.create_all(engine)
+def parser_test_db():
+    database_url = os.environ["DATABASE_URL"]
+    engine = create_engine(database_url, pool_pre_ping=True)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS parser"))
+        metadata.drop_all(connection)
+        metadata.create_all(connection)
     yield engine, database_url
     engine.dispose()
 

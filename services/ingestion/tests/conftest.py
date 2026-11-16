@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import re
 import traceback
 from datetime import datetime, timezone
@@ -9,6 +10,9 @@ from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+
+from app.database import metadata
 
 from app.logging_config import IngestionJsonFormatter
 
@@ -32,6 +36,16 @@ SENSITIVE_VALUE = re.compile(
     r"""(?:bearer\s+)?[^"'\s,;}]+"""
 )
 URL_PASSWORD = re.compile(r"(?i)(://[^:/@\s]+:)[^@\s]+@")
+
+
+def prepare_test_database():
+    engine = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+    with engine.begin() as connection:
+        connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ingestion")
+        metadata.drop_all(connection)
+        metadata.create_all(connection)
+    return engine
+
 
 def _test_id(node_id: str) -> str:
     return f"ING-{hashlib.sha256(node_id.encode('utf-8')).hexdigest()[:8].upper()}"

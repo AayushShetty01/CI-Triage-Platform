@@ -1,11 +1,12 @@
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from app.database import metadata
 from app.settings import Settings
@@ -51,24 +52,24 @@ def failures_extracted(run_id: str, failures: list[dict], event_id: str | None =
 
 
 @pytest.fixture
-def engine(tmp_path):
-    eng = create_engine(
-        f"sqlite:///{tmp_path / 'classifier.db'}",
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"classifier": None}},
-    )
-    metadata.create_all(eng)
+def engine():
+    eng = create_engine(os.environ["DATABASE_URL"], pool_pre_ping=True)
+    with eng.begin() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS classifier"))
+        metadata.drop_all(connection)
+        metadata.create_all(connection)
     yield eng
     eng.dispose()
 
 
 @pytest.fixture
-def settings(tmp_path) -> Settings:
+def settings() -> Settings:
     return Settings(
-        database_url=f"sqlite:///{tmp_path / 'classifier.db'}",
+        database_url=os.environ["DATABASE_URL"],
         enable_consumer=False,
         enable_relay=False,
         enable_llm_worker=False,
+        llm_enabled=False,
         ollama_model="test-model",
         llm_max_attempts=3,
         llm_retry_base_seconds=0.0,
@@ -76,6 +77,12 @@ def settings(tmp_path) -> Settings:
         breaker_failure_threshold=2,
         breaker_reset_seconds=30,
     )
+
+
+@pytest.fixture
+def llm_settings(settings: Settings) -> Settings:
+    settings.llm_enabled = True
+    return settings
 
 
 class FakeOllama:

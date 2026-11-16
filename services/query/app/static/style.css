@@ -97,6 +97,7 @@ h1 { margin: 10px 0 8px; font-size: clamp(32px, 3.2vw, 47px); line-height: 1.1; 
 .stat::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent); }
 .stat::after { content: ""; position: absolute; width: 110px; height: 110px; top: -68px; right: -31px; border-radius: 50%; background: var(--glow); filter: blur(16px); }
 .accent-teal { --accent: #6ee5b7; --glow: #2c7166; }
+.accent-blue { --accent: #8dbaf4; --glow: #405f8e; }
 .accent-amber { --accent: #efc481; --glow: #745c3d; }
 .accent-rose { --accent: #f39ca7; --glow: #78465b; }
 .accent-violet { --accent: #afa7ff; --glow: #5d528b; }
@@ -130,7 +131,7 @@ h2 { margin: 6px 0 4px; font-size: 18px; line-height: 1.2; letter-spacing: -.03e
 .group .name { min-width: 0; max-width: 440px; overflow: hidden; color: #dce7eb; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .group small { display: block; margin-top: 4px; color: #8ba4b4; font-size: 10px; text-transform: capitalize; }
 .group .count { display: grid; place-items: center; min-width: 28px; height: 26px; border-radius: 7px; color: #91e8c7; background: #24483f; font-size: 11px; font-weight: 800; }
-.runs-panel, .detail-panel, .flaky-panel { scroll-margin-top: 18px; }
+.runs-panel, .detail-panel, .flaky-panel, .services-panel { scroll-margin-top: 18px; }
 .updated { color: #8199a9; font-size: 10px; white-space: nowrap; }
 .updated::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 7px; border-radius: 50%; background: #70dcba; vertical-align: middle; }
 .table-wrap { overflow-x: auto; }
