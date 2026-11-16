@@ -1,0 +1,59 @@
+name: CI with Automated Triage
+
+on:
+  push:
+    branches: [ main, demo-* ]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pytest
+        run: pip install pytest
+
+      - name: Create Intentional Failure Test
+        run: |
+          mkdir -p tests
+          cat << 'EOF' > tests/test_payment.py
+          def test_successful_charge():
+              assert True
+
+          def test_insufficient_funds_handling():
+              # Simulating a breaking bug in CI
+              expected_code = 200
+              actual_code = 500
+              assert actual_code == expected_code, f"Payment service failed with code {actual_code}"
+          EOF
+
+      - name: Run Tests & Generate JUnit XML
+        id: run_tests
+        continue-on-error: true  # Allows the next step to run even when tests fail!
+        run: |
+          pytest --junitxml=reports/junit.xml tests/
+
+      - name: Send Failure Report to CI-Triage-Platform
+        if: always() && steps.run_tests.outcome == 'failure'
+        env:
+          TRIAGE_INGESTION_URL: ${{ secrets.TRIAGE_INGESTION_URL }} # e.g. https://a1b2-c3d4.ngrok-free.app
+          TRIAGE_API_KEY: ${{ secrets.TRIAGE_API_KEY }}             # dev-ingestion-key-change-me
+        run: |
+          if [ -f reports/junit.xml ]; then
+            echo "Sending JUnit report to CI Triage Platform..."
+            curl -v -X POST "$TRIAGE_INGESTION_URL/runs" \
+              -H "X-API-Key: $TRIAGE_API_KEY" \
+              -H "Content-Type: application/xml" \
+              -H "X-Commit-SHA: $GITHUB_SHA" \
+              -H "X-Branch: $GITHUB_REF_NAME" \
+              --data-binary "@reports/junit.xml"
+          else
+            echo "No JUnit report found."
+          fi
