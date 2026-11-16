@@ -1,7 +1,11 @@
-def test_unidentified_system_crash():
-    """Simulated unhandled kernel memory crash that rules do not know."""
-    raise RuntimeError(
-        "FATAL: Kernel trap 12: page fault while in kernel mode. "
-        "Fault virtual address: 0xdeadbeef, code: 0x0002. "
-        "Process heap allocator arena corruption in JIT runtime."
+import pytest
+
+def test_unhandled_corrupted_state_crash():
+    """An obscure runtime crash that bypasses standard regex rules."""
+    class KernelMemoryCorruption(Exception):
+        pass
+
+    raise KernelMemoryCorruption(
+        "FATAL: Kernel signal 11 caught. Page table entry 0xdeadbeef unmapped. "
+        "Native heap allocator arena chunk pointer corrupt during JIT execution."
     )
