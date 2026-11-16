@@ -107,12 +107,21 @@ jobs:
         run: |
           REPORT_FILE="services/${{ matrix.service }}/reports/${{ matrix.service }}.xml"
           if [ -f "$REPORT_FILE" ]; then
-            echo "Pushing $REPORT_FILE to $LIVE_TRIAGE_URL/runs..."
+            echo "Pushing $REPORT_FILE to $LIVE_TRIAGE_URL/runs with service header..."
+            NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             curl -s -X POST "$LIVE_TRIAGE_URL/runs" \
               -H "X-API-Key: $LIVE_API_KEY" \
               -H "Content-Type: application/xml" \
               -H "X-Commit-SHA: ${{ github.sha }}" \
               -H "X-Branch: ${{ github.ref_name }}" \
+              -H "X-CI-Repository: ${{ github.repository }}" \
+              -H "X-CI-Workflow: ${{ github.workflow }}" \
+              -H "X-CI-Run-Id: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}" \
+              -H "X-CI-Run-Attempt: ${{ github.run_attempt }}" \
+              -H "X-CI-Service: ${{ matrix.service }}" \
+              -H "X-CI-Actor: ${{ github.actor }}" \
+              -H "X-CI-Run-Url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              -H "X-CI-Timestamp: $NOW" \
               --data-binary "@$REPORT_FILE" || echo "Live stack unreachable"
           fi
 
