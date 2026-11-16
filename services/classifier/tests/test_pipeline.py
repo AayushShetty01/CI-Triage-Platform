@@ -69,13 +69,13 @@ async def test_rule_matches_are_classified_immediately(engine, settings):
     assert rows(engine, llm_jobs) == []
 
 
-async def test_duplicate_event_is_a_no_op(engine, settings):
+async def test_duplicate_event_is_a_no_op(engine, llm_settings):
     event = failures_extracted(RUN_A, [UNKNOWN_1, failure("p.T::a", "AssertionError", "boom")])
-    await process_failures_extracted_event(event, engine, settings)
-    again = await process_failures_extracted_event(event, engine, settings)
+    await process_failures_extracted_event(event, engine, llm_settings)
+    again = await process_failures_extracted_event(event, engine, llm_settings)
     assert again.duplicate
     # Same run under a new event_id is also not double counted.
-    await process_failures_extracted_event({**event, "event_id": "other-id"}, engine, settings)
+    await process_failures_extracted_event({**event, "event_id": "other-id"}, engine, llm_settings)
 
     assert len(rows(engine, classifications)) == 2
     assert len(events(engine)) == 1
@@ -83,7 +83,8 @@ async def test_duplicate_event_is_a_no_op(engine, settings):
     assert rows(engine, failure_groups, failure_groups.c.error_type == "KeyError")[0]["occurrence_count"] == 1
 
 
-async def test_similar_failures_share_one_llm_call(engine, settings, fake_ollama):
+async def test_similar_failures_share_one_llm_call(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1, UNKNOWN_2]), engine, settings)
     jobs = rows(engine, llm_jobs)
     assert len(jobs) == 1
@@ -112,7 +113,8 @@ async def test_similar_failures_share_one_llm_call(engine, settings, fake_ollama
     assert len(fake_ollama.calls) == 1
 
 
-async def test_llm_down_retries_then_degrades(engine, settings, fake_ollama):
+async def test_llm_down_retries_then_degrades(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     settings.breaker_failure_threshold = 100  # isolate retry behaviour from the breaker
     fake_ollama.fail_with = httpx.ConnectError("connection refused")
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1]), engine, settings)
@@ -139,7 +141,8 @@ async def test_llm_down_retries_then_degrades(engine, settings, fake_ollama):
     assert rows(engine, classifications, classifications.c.run_id == RUN_B)[0]["category"] == "flaky"
 
 
-async def test_open_breaker_stops_calls_and_stale_jobs_degrade(engine, settings, fake_ollama):
+async def test_open_breaker_stops_calls_and_stale_jobs_degrade(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     now = [datetime(2026, 1, 1, tzinfo=timezone.utc)]
     fake_ollama.fail_with = httpx.ReadTimeout("slow")
     pool = make_pool(engine, settings, fake_ollama, clock=lambda: now[0])
@@ -166,7 +169,8 @@ async def test_open_breaker_stops_calls_and_stale_jobs_degrade(engine, settings,
     assert {r["status"] for r in rows(engine, classifications)} == {"degraded"}
 
 
-async def test_busy_but_healthy_llm_does_not_degrade(engine, settings, fake_ollama):
+async def test_busy_but_healthy_llm_does_not_degrade(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     now = [datetime.now(timezone.utc) + timedelta(hours=1)]
     pool = make_pool(engine, settings, fake_ollama, clock=lambda: now[0])
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1]), engine, settings)
@@ -174,7 +178,8 @@ async def test_busy_but_healthy_llm_does_not_degrade(engine, settings, fake_olla
     assert rows(engine, classifications)[0]["status"] == "pending"
 
 
-async def test_invalid_model_output_becomes_unknown(engine, settings, fake_ollama):
+async def test_invalid_model_output_becomes_unknown(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     fake_ollama.reply = '{"category": "run_shell", "reason": "pwned"}'
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1]), engine, settings)
     pool = make_pool(engine, settings, fake_ollama)
@@ -185,7 +190,8 @@ async def test_invalid_model_output_becomes_unknown(engine, settings, fake_ollam
     assert pool.breaker.state == "closed"
 
 
-async def test_crashed_worker_lease_is_reclaimed(engine, settings, fake_ollama):
+async def test_crashed_worker_lease_is_reclaimed(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1]), engine, settings)
     now = [datetime.now(timezone.utc)]
     pool = make_pool(engine, settings, fake_ollama, clock=lambda: now[0])
@@ -199,7 +205,8 @@ async def test_crashed_worker_lease_is_reclaimed(engine, settings, fake_ollama):
     assert rows(engine, llm_jobs)[0]["attempts"] == 2
 
 
-async def test_reconcile_finishes_orphaned_pending_rows(engine, settings, fake_ollama):
+async def test_reconcile_finishes_orphaned_pending_rows(engine, llm_settings, fake_ollama):
+    settings = llm_settings
     await process_failures_extracted_event(failures_extracted(RUN_A, [UNKNOWN_1]), engine, settings)
     with engine.begin() as conn:
         conn.execute(update(llm_jobs).values(status="done", result_category="timeout"))

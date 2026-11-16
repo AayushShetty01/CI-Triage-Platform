@@ -1,15 +1,151 @@
 # CI-Triage-Platform
 
+[![CI Triage](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ci.yml)
+
 CI Test-Failure Triage Platform is an event-driven distributed system that
 automates CI test analysis. It uses FastAPI, RabbitMQ, PostgreSQL, and a local
 LLM to ingest JUnit reports, classify recurring failures, detect flaky tests,
 and provide actionable insights through APIs and dashboards.
 
+## Architecture and service ownership
+
+```mermaid
+flowchart LR
+    CI[CI runner] -->|POST JUnit XML| I[Ingestion :8001]
+    I -->|RunReceived / run.received| MQ[(RabbitMQ triage.events)]
+    MQ --> P[Parser :8002]
+    P -->|GET raw XML| I
+    P -->|FailuresExtracted / failures.extracted| MQ
+    MQ --> C[Classifier :8003]
+    C -->|FailureClassified / failure.classified| MQ
+    MQ --> Q[Query & Insights :8005]
+    Q -->|Fetch full results once per run| P
+    C --> W[LLM worker :8004]
+    W -->|optional local inference| O[Ollama]
+    I --> DB[(PostgreSQL :5432)]
+    P --> DB
+    C --> DB
+    Q --> DB
+    Prom[Prometheus :9090] -. scrapes /metrics .-> I
+    Prom -. scrapes /metrics .-> P
+    Prom -. scrapes /metrics .-> C
+    Prom -. scrapes /metrics .-> W
+    Prom -. scrapes /metrics .-> Q
+```
+
+| Service | Port | Owns / consumes | Produces / calls |
+|---|---:|---|---|
+| Ingestion | 8001 | Upload API, raw report storage, transactional outbox | Publishes `RunReceived`; Parser reads raw XML through its internal API |
+| Parser | 8002 | Parses JUnit XML and owns test-result history; consumes `run.received` | Publishes `FailuresExtracted`; fetches raw XML from Ingestion using `INGESTION_BASE_URL` |
+| Classifier | 8003 | Rules, fingerprints, classification records; consumes `failures.extracted` | Publishes `FailureClassified`; queues optional local LLM work |
+| Classifier LLM worker | 8004 | Claims classifier LLM jobs | Calls Ollama at `OLLAMA_BASE_URL`; it is not required when `LLM_ENABLED=false` |
+| Query & Insights | 8005 | Dashboard and query-owned read projection; consumes all three events | Fetches Parser results at event-processing time using `PARSER_BASE_URL`; serves run, insight, and flakiness APIs |
+
+All business services use the `triage` PostgreSQL database with separate
+roles, schemas, and Alembic version tables (`ingestion`, `parser`,
+`classifier`, and `query`). RabbitMQ carries events on the durable
+`triage.events` topic exchange. Prometheus scrapes all four APIs and the
+separate Classifier worker; `/health` and `/metrics` are available on every
+service.
+
+## Event contracts and idempotency
+
+The shared event envelope contains `event_id` (UUID), `event_type`,
+`occurred_at`, `schema_version` (`"1.0"`), `run_id` (64-character SHA-256),
+and `payload`. Producer-owned JSON Schemas and samples are in
+[`contracts/events/`](contracts/events/); see the
+[contract notes](contracts/README.md).
+
+| Event | Producer → routing key → consumer | Idempotency |
+|---|---|---|
+| `RunReceived` | Ingestion → `run.received` → Parser and Query | `run_id` is derived from commit SHA and report bytes; Parser stores one parsed run and Query records `event_id` plus unique `(run_id, test_id)` rows |
+| `FailuresExtracted` | Parser → `failures.extracted` → Classifier and Query | Stable run-level processing in Parser; Classifier and Query deduplicate event IDs and enforce unique run/test rows |
+| `FailureClassified` | Classifier → `failure.classified` → Query | Event-ID deduplication plus Query's unique `(run_id, test_id)` projection |
+
+Outbox relays provide at-least-once delivery, not exactly-once delivery.
+Consumers must tolerate duplicates. Query copies Parser's test history into its
+own schema once when handling `FailuresExtracted`; flaky-test reads do not call
+Parser. **Week 10 ADR:** Query owns the history/flakiness projection so insights
+remain available if Parser is unavailable. The rejected alternative was to
+call Parser from Query at read time, coupling dashboard availability and
+latency to Parser. Details are in
+[ADR-004](docs/adr/ADR-004-query-history-projection.md).
+
+## Run locally and test
+
+For the full local stack, copy `.env.example` to `.env` and run:
+
+```bash
+docker compose up -d --build
+```
+
+This starts the local Ollama service and pulls the configured model. To run
+the API pipeline without model download or LLM calls:
+
+```bash
+LLM_ENABLED=false docker compose up -d --build \
+  postgres rabbitmq parser classifier query ingestion prometheus
+python tools/e2e_smoke.py
+```
+
+Run each service's unit and contract tests with its development requirements:
+
+```bash
+mkdir -p reports
+python -m pip install -r services/ingestion/requirements-dev.txt
+python -m pytest -c services/ingestion/pytest.ini services/ingestion/tests \
+  --junitxml=reports/ingestion.xml
+python -m pip install -r services/parser/requirements-dev.txt
+python -m pytest -c services/parser/pytest.ini services/parser/tests \
+  --junitxml=reports/parser.xml
+python -m pip install -r services/classifier/requirements-dev.txt
+python -m pytest -c services/classifier/pytest.ini services/classifier/tests \
+  --junitxml=reports/classifier.xml
+python -m pip install -r services/query/requirements-dev.txt
+python -m pytest -c services/query/pytest.ini services/query/tests \
+  --junitxml=reports/query.xml
+```
+
+Tests use PostgreSQL, not SQLite. Point `DATABASE_URL` at a dedicated,
+disposable PostgreSQL database; the service fixtures reset only their own
+schemas. Ingestion's PostgreSQL/RabbitMQ integration tests additionally use
+`INGESTION_TEST_DATABASE_URL` and `INGESTION_TEST_RABBITMQ_URL`. CI provisions
+both databases and RabbitMQ service containers. The `/reports/` output folder
+is ignored by Git.
+
+## CI self-triage
+
+The [`ci.yml`](.github/workflows/ci.yml) workflow runs on pushes, pull requests,
+and manual dispatch:
+
+1. A four-service matrix runs unit, contract, and Ingestion integration tests
+   against PostgreSQL (and RabbitMQ where required), then uploads a JUnit XML
+   artifact for each service.
+2. The E2E job starts a clean Compose stack with `docker compose up --wait`,
+   publishes a failing sample through the full pipeline, and checks
+   idempotency and unsafe/malformed report rejection.
+3. The non-blocking publish job restores the ephemeral Postgres history,
+   publishes every JUnit artifact to Ingestion, and waits for Parser,
+   Classifier, and Query projections.
+4. The dashboard job exports Query's JSON data and creates a portable HTML
+   snapshot and PNG screenshot. Download the `dashboard-snapshot` artifact
+   from the workflow run.
+
+The runner-local Compose stack is ephemeral. A branch-scoped Actions cache
+stores a Postgres dump and restores it on the next run so trend and flakiness
+history can accumulate without hosting a public service. Runs on different
+branches intentionally have separate history. Publishing and snapshot jobs
+are non-blocking for the test verdict.
+
+Set the repository Actions secret `TRIAGE_INGESTION_API_KEY` to the key accepted
+by the local Compose Ingestion service. Without it, JUnit publishing is skipped
+with a notice; the test and E2E verdicts still run. The optional
+`workflow_dispatch` input `run_failure_simulation` publishes simulated failing
+and pass/fail flaky-test reports to demonstrate Query triage.
+
 ## Ingestion
 
-[![Ingestion tests](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-tests.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-tests.yml)
 [![Ingestion failure tests](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-tests.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-tests.yml)
-[![Ingestion failure simulation](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-simulation.yml/badge.svg)](https://github.com/AayushShetty01/CI-Triage-Platform/actions/workflows/ingestion-failure-simulation.yml)
 
 Ingestion accepts JUnit XML reports up to `MAX_REPORT_SIZE_BYTES` (10 MiB by
 default), stores each run and its `RunReceived` event in PostgreSQL in one
@@ -117,7 +253,7 @@ The test cases are in
 other Ingestion tests are under
 [`services/ingestion/tests/`](services/ingestion/tests/).
 
-The separate controlled simulation uses a mock payment application to produce
+The optional controlled simulation uses a mock payment application to produce
 a sample JUnit report; it does not stop or fault the real Compose services:
 
 ```bash
@@ -125,8 +261,8 @@ python -m pytest -c services/ingestion/pytest.ini \
   services/ingestion/failure_simulation/test_ingestion_failures.py
 ```
 
-Its results are uploaded by the
-[Ingestion failure simulation workflow](.github/workflows/ingestion-failure-simulation.yml).
+Its results are available from the `CI Triage` workflow's
+`run_failure_simulation` dispatch option.
 
 The real failure-injection suite is marked `failure` and excluded from the
 default run. It stops, starts, or kills Docker Compose services and always
@@ -173,7 +309,10 @@ Those results are from one laptop and are not production capacity figures.
 The `RunReceived` event contract is owned by Ingestion. See the
 [schema](contracts/events/run_received.schema.json),
 [consumer samples](contracts/events/samples/), and
-[contract documentation](contracts/README.md).
+[contract documentation](contracts/README.md). Optional CI provenance is
+carried as `payload.ci` (`repository`, `workflow`, external CI run ID and
+attempt, service, actor, run URL, and timestamp); the event version remains
+`"1.0"`, and the content-derived `run_id` format is unchanged.
 
 ## Parser
 
@@ -377,7 +516,8 @@ Endpoints:
   worker, port `8004`) the circuit breaker state.
 - `GET /health`, `GET /metrics`.
 
-Run the tests (SQLite and a fake Ollama; no Docker needed):
+Run the tests against a dedicated PostgreSQL database; the fake Ollama
+transport is used in LLM tests:
 
 ```bash
 python -m pip install -r services/classifier/requirements-dev.txt
@@ -388,12 +528,30 @@ cd services/classifier && python -m pytest -c pytest.ini tests
 
 Query is the fourth independently deployable business service. It consumes
 `RunReceived`, `FailuresExtracted`, and `FailureClassified` from RabbitMQ into
-its own PostgreSQL schema. It displays accepted reports, pending
-classifications, terminal categories, degraded fallbacks, common failure
-groups, and potentially flaky tests. The dashboard uses the Query API, not
-static sample data. Query reads complete per-run test outcomes through the
-Parser API when it handles `FailuresExtracted`, then owns that history
-projection for subsequent insight requests.
+its own PostgreSQL schema. It displays per-run and aggregate pass/fail/skipped
+counts, branch/commit history, classifier category and confidence, classifier
+source, failure-signature groups, per-service breakdowns, GitHub Actions links,
+and potentially flaky tests. The dashboard uses the Query API, not static
+sample data. Query reads complete per-run test outcomes through the Parser API
+when it handles `FailuresExtracted`, then owns that history projection for
+subsequent insight requests.
+
+The pipeline can consume these JSON endpoints:
+
+- `GET /api/runs?days=90&limit=200`: recent runs with test counts and optional
+  CI metadata.
+- `GET /api/runs/{run_id}`: one run and its classified failures, confidence,
+  source, and fingerprint.
+- `GET /api/insights?days=90`: aggregate test counts, categories, recurring
+  fingerprints, and service breakdown.
+- `GET /api/services?days=90`: service-level counts and categorized failures.
+- `GET /api/flaky?days=90`: Query-owned history candidates with both pass and
+  fail/error outcomes in distinct runs.
+
+Each successful CI workflow exports a self-contained HTML dashboard, JSON
+data, and PNG screenshot as the `dashboard-snapshot` artifact. The workflow
+summary links to the artifact; the screenshot below is added after a real
+GitHub Actions run.
 
 Start the full stack with `docker compose up -d --build`, wait for
 `http://localhost:8005/health` to return 200, and open the UI at

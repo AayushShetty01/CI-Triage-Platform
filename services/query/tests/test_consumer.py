@@ -6,11 +6,11 @@ from unittest.mock import Mock
 from uuid import uuid4
 
 import httpx
-from sqlalchemy import create_engine, func, select
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import func, select
 
 from app import consumer
-from app.database import metadata, tests
+from app.database import tests
+from tests.conftest import create_test_engine
 
 
 class Message:
@@ -31,10 +31,7 @@ class Message:
 
 
 def engine():
-    result = create_engine("sqlite://", connect_args={"check_same_thread": False},
-                           poolclass=StaticPool).execution_options(schema_translate_map={"query": None})
-    metadata.create_all(result)
-    return result
+    return create_test_engine()
 
 
 def metrics():

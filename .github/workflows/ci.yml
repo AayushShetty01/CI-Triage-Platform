@@ -1,0 +1,464 @@
+name: CI Triage
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_failure_simulation:
+        description: Publish simulated failing and flaky tests to the dashboard
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-triage-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  unit-tests:
+    name: ${{ matrix.service }} tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ingestion, parser, classifier, query]
+    env:
+      DATABASE_URL: postgresql+psycopg://triage_admin:triage_admin_ci@localhost:5432/triage_test
+      RABBITMQ_URL: amqp://triage:triage_ci@localhost:5672/
+      INGESTION_TEST_DATABASE_URL: postgresql+psycopg://triage_admin:triage_admin_ci@localhost:5432/ingestion_test
+      INGESTION_TEST_RABBITMQ_URL: amqp://triage:triage_ci@localhost:5672/
+      INGESTION_API_KEY: test-ingestion-api-key
+      INTERNAL_API_KEY: test-internal-api-key
+      LLM_ENABLED: "false"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: triage_test
+          POSTGRES_USER: triage_admin
+          POSTGRES_PASSWORD: triage_admin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U triage_admin -d triage_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3-management
+        env:
+          RABBITMQ_DEFAULT_USER: triage
+          RABBITMQ_DEFAULT_PASS: triage_ci
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/${{ matrix.service }}/requirements-dev.txt
+
+      - name: Install test dependencies
+        working-directory: services/${{ matrix.service }}
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Create Ingestion migration database
+        if: matrix.service == 'ingestion'
+        env:
+          PGPASSWORD: triage_admin_ci
+        run: psql -h localhost -U triage_admin -d triage_test -c "CREATE DATABASE ingestion_test OWNER triage_admin"
+
+      - name: Run unit, contract, and integration tests
+        working-directory: services/${{ matrix.service }}
+        run: |
+          mkdir -p reports
+          python -m pytest -c pytest.ini tests \
+            --junitxml="reports/${{ matrix.service }}.xml"
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.service }}
+          path: services/${{ matrix.service }}/reports/${{ matrix.service }}.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+  integration-e2e:
+    name: Compose E2E smoke
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      INGESTION_API_KEY: ${{ secrets.TRIAGE_INGESTION_API_KEY || 'dev-ingestion-key-change-me' }}
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      RABBITMQ_USER: triage
+      RABBITMQ_PASSWORD: triage_dev
+      LLM_ENABLED: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore branch-scoped Postgres history
+        id: restore_history
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/triage.dump
+          key: ${{ runner.os }}-triage-db-${{ github.ref }}-${{ github.run_id }}-${{ github.run_attempt }}-e2e
+          restore-keys: |
+            ${{ runner.os }}-triage-db-${{ github.ref }}-
+
+      - name: Start clean Postgres and RabbitMQ
+        id: postgres_up
+        run: docker compose --project-name ci-triage-e2e up -d --wait postgres rabbitmq
+
+      - name: Restore prior dashboard history
+        if: hashFiles('reports/triage.dump') != ''
+        run: |
+          docker compose --project-name ci-triage-e2e exec -T postgres \
+            pg_restore --clean --if-exists --exit-on-error --no-owner \
+            -U triage_admin -d triage < reports/triage.dump
+
+      - name: Start the full triage stack
+        id: compose_up
+        run: >-
+          docker compose --project-name ci-triage-e2e up
+          -d --build --wait parser classifier query ingestion prometheus
+
+      - name: Run E2E and publisher tests with JUnit output
+        run: |
+          mkdir -p reports
+          python -m pip install -r services/ingestion/requirements-dev.txt
+          python -m pytest tools/test_publish_junit.py tools/test_dashboard_snapshot.py \
+            tools/test_e2e_smoke.py \
+            --junitxml=reports/e2e.xml
+
+      - name: Export dashboard history
+        if: always() && steps.postgres_up.outcome == 'success'
+        id: export_db
+        run: |
+          mkdir -p reports
+          docker compose --project-name ci-triage-e2e exec -T postgres \
+            pg_dump -U triage_admin -d triage -Fc > reports/triage.dump
+
+      - name: Save updated branch-scoped history
+        if: always() && steps.export_db.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: reports/triage.dump
+          key: ${{ runner.os }}-triage-db-${{ github.ref }}-${{ github.run_id }}-${{ github.run_attempt }}-e2e
+
+      - name: Upload E2E JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-e2e
+          path: reports/e2e.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload E2E Postgres history
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-db-after-e2e
+          path: reports/triage.dump
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Dump Compose logs on failure
+        if: failure()
+        run: docker compose --project-name ci-triage-e2e logs --no-color --timestamps
+
+      - name: Remove isolated Compose stack and volume
+        if: always()
+        run: docker compose --project-name ci-triage-e2e down -v
+
+  failure-simulation:
+    name: Optional failing and flaky test demo
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_failure_simulation }}
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgresql+psycopg://triage_admin:triage_admin_ci@localhost:5432/triage_test
+      LLM_ENABLED: "false"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: triage_test
+          POSTGRES_USER: triage_admin
+          POSTGRES_PASSWORD: triage_admin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U triage_admin -d triage_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ingestion test dependencies
+        run: python -m pip install -r services/ingestion/requirements-dev.txt
+
+      - name: Run controlled failing-test simulation
+        run: |
+          mkdir -p reports
+          python -m pytest -c services/ingestion/pytest.ini \
+            services/ingestion/failure_simulation/test_ingestion_failures.py \
+            --junitxml=reports/failure-simulation-tests.xml
+          cp artifacts/failure-simulation-junit.xml reports/failure-simulation.xml
+          python tools/create_failure_demo_reports.py
+
+      - name: Upload failure simulation test-driver JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-failure-simulation-tests
+          path: reports/failure-simulation-tests.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload simulated failures and flaky pass/fail pair
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-failure-simulation-outcomes
+          path: |
+            reports/failure-simulation.xml
+            reports/simulation-flaky-failure.xml
+            reports/simulation-flaky-recovery.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+  publish-to-triage:
+    name: Publish JUnit reports to Triage
+    needs: [unit-tests, integration-e2e, failure-simulation]
+    if: always() && needs.unit-tests.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    env:
+      INGESTION_API_KEY: ${{ secrets.TRIAGE_INGESTION_API_KEY || 'dev-ingestion-key-change-me' }}
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      RABBITMQ_USER: triage
+      RABBITMQ_PASSWORD: triage_dev
+      LLM_ENABLED: "false"
+      TRIAGE_INGESTION_API_KEY: ${{ secrets.TRIAGE_INGESTION_API_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download all available JUnit reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          path: reports
+          merge-multiple: true
+
+      - name: Download E2E Postgres history
+        id: seed_artifact
+        if: needs.integration-e2e.result != 'skipped'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: triage-db-after-e2e
+          path: reports
+
+      - name: Restore cached Postgres history when no E2E dump exists
+        if: steps.seed_artifact.outcome != 'success'
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/triage.dump
+          key: ${{ runner.os }}-triage-db-${{ github.ref }}-${{ github.run_id }}-${{ github.run_attempt }}-e2e
+          restore-keys: |
+            ${{ runner.os }}-triage-db-${{ github.ref }}-
+
+      - name: Start Postgres and RabbitMQ
+        id: postgres_up
+        run: docker compose --project-name ci-triage-publish up -d --wait postgres rabbitmq
+
+      - name: Restore database seed
+        if: hashFiles('reports/triage.dump') != ''
+        run: |
+          docker compose --project-name ci-triage-publish exec -T postgres \
+            pg_restore --clean --if-exists --exit-on-error --no-owner \
+            -U triage_admin -d triage < reports/triage.dump
+
+      - name: Start the triage stack
+        id: compose_up
+        run: >-
+          docker compose --project-name ci-triage-publish up
+          -d --build --wait parser classifier query ingestion prometheus
+
+      - name: Publish JUnit reports and wait for projections
+        continue-on-error: true
+        env:
+          TRIAGE_INGESTION_API_KEY: ${{ secrets.TRIAGE_INGESTION_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: python tools/publish_junit.py
+
+      - name: Export published dashboard history
+        if: always() && steps.postgres_up.outcome == 'success'
+        id: export_db
+        run: |
+          mkdir -p reports
+          docker compose --project-name ci-triage-publish exec -T postgres \
+            pg_dump -U triage_admin -d triage -Fc > reports/triage.dump
+
+      - name: Save published branch-scoped history
+        if: always() && steps.export_db.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: reports/triage.dump
+          key: ${{ runner.os }}-triage-db-${{ github.ref }}-${{ github.run_id }}-${{ github.run_attempt }}-published
+
+      - name: Upload post-publish database seed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-db-after-publish
+          path: reports/triage.dump
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Dump Compose logs on failure
+        if: failure()
+        run: docker compose --project-name ci-triage-publish logs --no-color --timestamps
+
+      - name: Remove publish Compose stack and volume
+        if: always()
+        run: docker compose --project-name ci-triage-publish down -v
+
+  dashboard-snapshot:
+    name: Export dashboard snapshot
+    needs: publish-to-triage
+    if: always() && needs.publish-to-triage.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    env:
+      INGESTION_API_KEY: ${{ secrets.TRIAGE_INGESTION_API_KEY || 'dev-ingestion-key-change-me' }}
+      INTERNAL_API_KEY: dev-internal-key-change-me
+      RABBITMQ_USER: triage
+      RABBITMQ_PASSWORD: triage_dev
+      LLM_ENABLED: "false"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Download post-publish database seed
+        id: seed_artifact
+        if: needs.publish-to-triage.result == 'success'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: triage-db-after-publish
+          path: reports
+
+      - name: Restore cached history when no publish dump exists
+        if: steps.seed_artifact.outcome != 'success'
+        uses: actions/cache/restore@v4
+        with:
+          path: reports/triage.dump
+          key: ${{ runner.os }}-triage-db-${{ github.ref }}-${{ github.run_id }}-${{ github.run_attempt }}-published
+          restore-keys: |
+            ${{ runner.os }}-triage-db-${{ github.ref }}-
+
+      - name: Start Postgres and RabbitMQ
+        id: postgres_up
+        run: docker compose --project-name ci-triage-dashboard up -d --wait postgres rabbitmq
+
+      - name: Restore dashboard database
+        if: hashFiles('reports/triage.dump') != ''
+        run: |
+          docker compose --project-name ci-triage-dashboard exec -T postgres \
+            pg_restore --clean --if-exists --exit-on-error --no-owner \
+            -U triage_admin -d triage < reports/triage.dump
+
+      - name: Start the Query dashboard
+        id: compose_up
+        run: >-
+          docker compose --project-name ci-triage-dashboard up
+          -d --build --wait parser classifier query ingestion prometheus
+
+      - name: Fetch JSON data and render static dashboard
+        env:
+          QUERY_URL: http://localhost:8005
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: python tools/dashboard_snapshot.py
+
+      - name: Capture dashboard screenshot
+        run: python tools/screenshot_snapshot.py
+
+      - name: Upload dashboard snapshot, JSON data, and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-snapshot
+          path: |
+            reports/dashboard-snapshot.html
+            reports/dashboard-data.json
+            reports/dashboard-snapshot.png
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Dump Compose logs on failure
+        if: failure()
+        run: docker compose --project-name ci-triage-dashboard logs --no-color --timestamps
+
+      - name: Remove dashboard Compose stack and volume
+        if: always()
+        run: docker compose --project-name ci-triage-dashboard down -v

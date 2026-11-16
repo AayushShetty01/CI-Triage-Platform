@@ -2,19 +2,17 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, func, select
-from sqlalchemy.pool import StaticPool
+from sqlalchemy import func, select
 
-from app.database import failures, metadata, processed_events, tests
+from app.database import failures, processed_events, tests
 from app.projection import apply_event
 from app.queries import flaky_candidates, get_run, insights
+from tests.conftest import create_test_engine
 
 
 @pytest.fixture
 def engine():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False},
-                           poolclass=StaticPool).execution_options(schema_translate_map={"query": None})
-    metadata.create_all(engine)
+    engine = create_test_engine()
     yield engine
     engine.dispose()
 
@@ -145,3 +143,48 @@ def test_junit_without_classname_is_accepted(engine):
     apply_event(engine, parsed)
     apply_event(engine, result)
     assert get_run(engine, run_id)["state"] == "complete"
+
+
+def test_ci_run_metadata_counts_and_classifier_confidence_are_projected(engine):
+    run_id = "5" * 64
+    metadata = {
+        "repository": "example/project",
+        "workflow": "CI",
+        "run_id": "12345-1-parser",
+        "run_attempt": "1",
+        "service": "parser",
+        "actor": "example",
+        "run_url": "https://github.com/example/project/actions/runs/12345",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    received = event("RunReceived", run_id, {
+        "commit_sha": run_id[:12],
+        "branch": "main",
+        "received_at": datetime.now(timezone.utc).isoformat(),
+        "ci": metadata,
+    })
+    apply_event(engine, received)
+    apply_event(engine, extracted(run_id), [
+        {"test_id": "pkg.Test::case", "test_name": "case", "class_name": "pkg.Test", "status": "failed"}
+    ])
+    classification = classified(run_id)
+    classification["payload"]["confidence"] = 0.93
+    apply_event(engine, classification)
+
+    run = get_run(engine, run_id)
+    summary = insights(engine)
+
+    assert run["ci_metadata"] == metadata
+    assert run["test_counts"] == {"total": 1, "passed": 0, "failed": 1, "skipped": 0}
+    assert run["failures"][0]["confidence"] == 0.93
+    assert summary["test_counts"] == {"total": 1, "passed": 0, "failed": 1, "skipped": 0}
+    assert summary["services"] == [{
+        "service": "parser",
+        "runs": 1,
+        "tests": 1,
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "failures": 1,
+        "categories": {"assertion": 1},
+    }]

@@ -93,15 +93,31 @@ def create_app(
     internal_api_key: str | None = None,
     enable_consumer: bool = True,
     enable_relay: bool = True,
-    outbox_poll_interval_seconds: float = 1.0,
-    relay_backoff_cap_seconds: float = 30.0,
-    outbox_batch_size: int = 50,
+    outbox_poll_interval_seconds: float | None = None,
+    relay_backoff_cap_seconds: float | None = None,
+    outbox_batch_size: int | None = None,
 ) -> FastAPI:
     configure_json_logging()
     db_url = database_url or os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
     rb_url = rabbitmq_url or os.getenv("RABBITMQ_URL", DEFAULT_RABBITMQ_URL)
     ing_url = ingestion_base_url or os.getenv("INGESTION_BASE_URL", DEFAULT_INGESTION_BASE_URL)
     int_key = internal_api_key or os.getenv("INTERNAL_API_KEY", DEFAULT_INTERNAL_API_KEY)
+    poll_interval = outbox_poll_interval_seconds
+    if poll_interval is None:
+        poll_interval = float(os.getenv(
+            "RELAY_POLL_INTERVAL_SECONDS",
+            os.getenv("OUTBOX_POLL_INTERVAL_SECONDS", "1"),
+        ))
+    backoff_cap = (
+        relay_backoff_cap_seconds
+        if relay_backoff_cap_seconds is not None
+        else float(os.getenv("RELAY_BACKOFF_CAP_SECONDS", "30"))
+    )
+    batch_size = (
+        outbox_batch_size
+        if outbox_batch_size is not None
+        else int(os.getenv("OUTBOX_BATCH_SIZE", "50"))
+    )
 
     engine = _create_engine(db_url)
     ingestion_client = IngestionClient(base_url=ing_url, internal_key=int_key)
@@ -116,6 +132,8 @@ def create_app(
             metadata.create_all(engine)
 
         stop_consumer_event = asyncio.Event()
+        consumer_ready = asyncio.Event()
+        app.state.consumer_ready = consumer_ready
         consumer_task: asyncio.Task[None] | None = None
         relay_task: asyncio.Task[None] | None = None
 
@@ -133,6 +151,7 @@ def create_app(
                     ingestion_client=ingestion_client,
                     metrics=metrics_map,
                     stop_event=stop_consumer_event,
+                    ready_event=consumer_ready,
                 )
             )
 
@@ -141,13 +160,13 @@ def create_app(
                 run_outbox_relay(
                     engine=engine,
                     rabbitmq_url=rb_url,
-                    poll_interval_seconds=outbox_poll_interval_seconds,
-                    batch_size=outbox_batch_size,
+                    poll_interval_seconds=poll_interval,
+                    batch_size=batch_size,
                     pending_gauge=outbox_pending,
                     oldest_pending_gauge=outbox_oldest_pending_seconds,
                     publish_errors=relay_publish_errors,
                     consecutive_failures_gauge=relay_consecutive_failures,
-                    backoff_cap_seconds=relay_backoff_cap_seconds,
+                    backoff_cap_seconds=backoff_cap,
                 )
             )
 
@@ -192,6 +211,8 @@ def create_app(
         except Exception as err:
             logger.error("Database health check failed: %s", err)
             raise HTTPException(status_code=503, detail="Database unhealthy")
+        if enable_consumer and not request.app.state.consumer_ready.is_set():
+            raise HTTPException(status_code=503, detail="Parser queue not ready")
         health_checks.inc()
         return {"status": "healthy", "service": "parser"}
 

@@ -1,4 +1,5 @@
-from sqlalchemy import Column, DateTime, ForeignKeyConstraint, Index, Integer, MetaData, String, Table, Text, UniqueConstraint
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKeyConstraint, Index, Integer, MetaData, String, Table, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData(schema="query")
 
@@ -13,6 +14,7 @@ runs = Table(
     Column("failed_tests", Integer),
     Column("passed_tests", Integer),
     Column("skipped_tests", Integer),
+    Column("ci_metadata", JSON().with_variant(JSONB, "postgresql")),
 )
 
 tests = Table(
@@ -38,6 +40,7 @@ failures = Table(
     Column("error_message", Text),
     Column("fingerprint", String(32)),
     Column("category", String(32)),
+    Column("confidence", Float),
     Column("status", String(20), nullable=False),
     Column("source", String(20)),
     Column("rules_version", String(64)),

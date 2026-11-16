@@ -115,6 +115,11 @@ def create_app(database_url: str | None = None, enable_consumer: bool = True) ->
     def api_insights(days: int = Query(7, ge=1, le=90), branch: str | None = None):
         return insights(engine, days, branch)
 
+    @app.get("/api/services")
+    def api_services(days: int = Query(7, ge=1, le=90), branch: str | None = None):
+        result = insights(engine, days, branch)
+        return {"days": days, "branch": branch, "services": result["services"]}
+
     @app.get("/api/flaky")
     def api_flaky(days: int = Query(14, ge=1, le=90), branch: str | None = None):
         return {"days": days, "branch": branch, "definition":

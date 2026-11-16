@@ -1,14 +1,15 @@
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, insert, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import metadata, outbox, runs
+from app.database import outbox, runs
 from app.logging_config import IngestionJsonFormatter
 from app.main import create_app
 from app.relay import (
@@ -17,6 +18,7 @@ from app.relay import (
     refresh_outbox_metrics,
     run_outbox_relay,
 )
+from tests.conftest import prepare_test_database
 
 JUNIT_XML = b"""<?xml version="1.0"?>
 <testsuite name="sample">
@@ -28,14 +30,9 @@ INTERNAL_API_KEY = "test-internal-api-key"
 
 
 @pytest.fixture
-def ingestion_client(tmp_path):
-    database_url = f"sqlite:///{tmp_path / 'ingestion-test.db'}"
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"ingestion": None}},
-    )
-    metadata.create_all(engine)
+def ingestion_client():
+    database_url = os.environ["DATABASE_URL"]
+    engine = prepare_test_database()
     app = create_app(
         database_url=database_url,
         enable_relay=False,
@@ -152,7 +149,6 @@ def test_wrong_key_precedes_oversized_upload_validation(ingestion_client) -> Non
 @pytest.mark.parametrize("key_state", ["missing", "empty"])
 def test_startup_requires_both_nonempty_keys(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
     missing_key: str,
     key_state: str,
 ) -> None:
@@ -164,7 +160,7 @@ def test_startup_requires_both_nonempty_keys(
         monkeypatch.setenv(missing_key, "")
 
     with pytest.raises(RuntimeError, match="must both be set"):
-        create_app(database_url=f"sqlite:///{tmp_path / 'missing-key.db'}")
+        create_app(database_url=os.environ["DATABASE_URL"])
 
 
 def test_authentication_failures_do_not_expose_keys(
@@ -463,11 +459,10 @@ def test_raw_report_returns_503_with_retry_after_when_database_is_unavailable(
 
 def test_retry_after_setting_can_be_configured_from_environment(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path,
 ) -> None:
     monkeypatch.setenv("INGESTION_RETRY_AFTER_SECONDS", "9")
     app = create_app(
-        database_url=f"sqlite:///{tmp_path / 'retry-after-setting.db'}",
+        database_url=os.environ["DATABASE_URL"],
         enable_relay=False,
     )
     try:

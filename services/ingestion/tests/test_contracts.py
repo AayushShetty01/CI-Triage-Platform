@@ -1,16 +1,18 @@
 import asyncio
 import copy
 import json
+import os
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
-from sqlalchemy import create_engine, select, update
+from sqlalchemy import select, update
 
-from app.database import metadata, outbox
+from app.database import outbox
 from app.main import create_app
 from app.relay import publish_pending_batch
+from tests.conftest import prepare_test_database
 
 SERVICE_DIR = Path(__file__).resolve().parents[1]
 CONTRACTS_DIR = SERVICE_DIR.parents[1] / "contracts" / "events"
@@ -23,14 +25,9 @@ INGESTION_API_KEY = "test-ingestion-api-key"
 
 
 @pytest.fixture
-def contract_client(tmp_path):
-    database_url = f"sqlite:///{tmp_path / 'contract-test.db'}"
-    engine = create_engine(
-        database_url,
-        connect_args={"check_same_thread": False},
-        execution_options={"schema_translate_map": {"ingestion": None}},
-    )
-    metadata.create_all(engine)
+def contract_client():
+    database_url = os.environ["DATABASE_URL"]
+    engine = prepare_test_database()
     app = create_app(database_url=database_url, enable_relay=False)
     with TestClient(app) as client:
         yield client, app.state.engine
@@ -77,6 +74,51 @@ def test_event_from_post_and_outbox_validates(contract_client) -> None:
         event = connection.execute(select(outbox.c.payload)).scalar_one()
 
     VALIDATOR.validate(event)
+
+
+def test_ci_metadata_is_included_in_the_run_received_contract(contract_client) -> None:
+    client, engine = contract_client
+    response = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "ci-contract-commit",
+            "X-Branch": "main",
+            "X-CI-Repository": "example/project",
+            "X-CI-Workflow": "CI",
+            "X-CI-Run-Id": "12345-1-ingestion",
+            "X-CI-Run-Attempt": "1",
+            "X-CI-Service": "ingestion",
+            "X-CI-Actor": "example",
+            "X-CI-Run-Url": "https://github.com/example/project/actions/runs/12345",
+            "X-CI-Timestamp": "2026-04-20T12:00:00Z",
+        },
+    )
+    assert response.status_code == 202
+    with engine.connect() as connection:
+        event = connection.execute(select(outbox.c.payload)).scalar_one()
+
+    VALIDATOR.validate(event)
+    assert event["payload"]["ci"]["run_id"] == "12345-1-ingestion"
+
+
+def test_partial_ci_metadata_is_rejected(contract_client) -> None:
+    client, _ = contract_client
+    response = client.post(
+        "/runs",
+        content=JUNIT_XML,
+        headers={
+            "X-API-Key": INGESTION_API_KEY,
+            "Content-Type": "application/xml",
+            "X-Commit-Sha": "ci-contract-commit",
+            "X-Branch": "main",
+            "X-CI-Service": "ingestion",
+        },
+    )
+
+    assert response.status_code == 400
 
 
 def test_legacy_outbox_event_validates_after_relay_transformation(contract_client) -> None:

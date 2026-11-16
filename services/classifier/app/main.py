@@ -60,9 +60,11 @@ def create_app(
         if engine.dialect.name == "sqlite":
             metadata.create_all(engine)
         stop = asyncio.Event()
+        consumer_ready = asyncio.Event()
+        app.state.consumer_ready = consumer_ready
         tasks: list[asyncio.Task[None]] = []
         if cfg.enable_consumer:
-            tasks.append(asyncio.create_task(run_consumer(engine, cfg, stop)))
+            tasks.append(asyncio.create_task(run_consumer(engine, cfg, stop, consumer_ready)))
         if cfg.enable_relay:
             tasks.append(
                 asyncio.create_task(
@@ -110,6 +112,8 @@ def create_app(
         except Exception as err:
             logger.error("Database health check failed: %s", err)
             raise HTTPException(status_code=503, detail="Database unhealthy")
+        if cfg.enable_consumer and not app.state.consumer_ready.is_set():
+            raise HTTPException(status_code=503, detail="Classifier queue not ready")
         metrics.health_checks.inc()
         return {"status": "healthy", "service": "classifier"}
 

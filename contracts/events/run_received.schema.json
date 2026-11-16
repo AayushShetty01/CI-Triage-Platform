@@ -57,6 +57,30 @@
         "received_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "ci": {
+          "type": "object",
+          "required": [
+            "repository",
+            "workflow",
+            "run_id",
+            "run_attempt",
+            "service",
+            "actor",
+            "run_url",
+            "timestamp"
+          ],
+          "properties": {
+            "repository": {"type": "string", "minLength": 1, "maxLength": 255},
+            "workflow": {"type": "string", "minLength": 1, "maxLength": 255},
+            "run_id": {"type": "string", "minLength": 1, "maxLength": 255},
+            "run_attempt": {"type": "string", "minLength": 1, "maxLength": 16},
+            "service": {"type": "string", "minLength": 1, "maxLength": 128},
+            "actor": {"type": "string", "minLength": 1, "maxLength": 255},
+            "run_url": {"type": "string", "format": "uri", "maxLength": 2048},
+            "timestamp": {"type": "string", "format": "date-time", "maxLength": 64}
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": true
