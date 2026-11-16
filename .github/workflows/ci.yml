@@ -98,6 +98,23 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+      - name: Send report to live developer stack (ngrok)
+        if: always() && env.LIVE_TRIAGE_URL != ''
+        env:
+          LIVE_TRIAGE_URL: ${{ secrets.TRIAGE_INGESTION_URL }}
+          LIVE_API_KEY: ${{ secrets.TRIAGE_API_KEY || 'dev-ingestion-key-change-me' }}
+        run: |
+          REPORT_FILE="services/${{ matrix.service }}/reports/${{ matrix.service }}.xml"
+          if [ -f "$REPORT_FILE" ]; then
+            echo "Pushing $REPORT_FILE to $LIVE_TRIAGE_URL/runs..."
+            curl -s -X POST "$LIVE_TRIAGE_URL/runs" \
+              -H "X-API-Key: $LIVE_API_KEY" \
+              -H "Content-Type: application/xml" \
+              -H "X-Commit-SHA: ${{ github.sha }}" \
+              -H "X-Branch: ${{ github.ref_name }}" \
+              --data-binary "@$REPORT_FILE" || echo "Live stack unreachable"
+          fi
+
   integration-e2e:
     name: Compose E2E smoke
     needs: unit-tests
