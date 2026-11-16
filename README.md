@@ -568,3 +568,66 @@ Run Query tests without Docker after installing its development requirements:
 python -m pip install -r services/query/requirements-dev.txt
 cd services/query && python -m pytest -c pytest.ini -q
 ```
+
+---
+
+## Quick-Start & Operations Cheatsheet (Fresh Restart & Verification)
+
+Use this section whenever starting or verifying the platform from scratch on any machine.
+
+### 1. Start the Complete Stack
+Starts PostgreSQL, RabbitMQ, Ingestion, Parser, Classifier, Classifier LLM Worker, Ollama, and Query UI:
+```bash
+# 1. Ensure Ollama model is available
+docker compose up -d ollama
+docker compose exec ollama ollama pull qwen2.5:1.5b
+
+# 2. Start all services and workers
+docker compose up -d --build
+```
+
+### 2. Verify Service Health
+```bash
+curl -s http://localhost:8001/health  # Ingestion
+curl -s http://localhost:8002/health  # Parser
+curl -s http://localhost:8003/health  # Classifier
+curl -s http://localhost:8005/health  # Query & UI
+```
+
+### 3. Web Dashboards
+- **CI Triage Live UI**: [http://localhost:8005](http://localhost:8005)
+- **RabbitMQ Management UI**: [http://localhost:15673](http://localhost:15673) *(User: `triage` / Pass: `triage_dev`)*
+- **Prometheus Metrics**: [http://localhost:9090](http://localhost:9090)
+- **Grafana Dashboard**: [http://localhost:3000](http://localhost:3000)
+
+### 4. Public ngrok Tunnels (for Remote CI / GitHub Actions)
+To stream live test failures from GitHub Actions into your local stack:
+```bash
+# In terminal 1 (Ingestion API):
+ngrok http 8001
+
+# In terminal 2 (Optional - Public Dashboard):
+ngrok http 8005
+```
+Set the following GitHub Repository Secrets under **Settings -> Secrets -> Actions**:
+- `TRIAGE_INGESTION_URL`: `<your-ngrok-8001-url>` (e.g., `https://xxxx.ngrok-free.dev`)
+- `TRIAGE_API_KEY`: `dev-ingestion-key-change-me`
+
+### 5. Essential Database Inspection Commands
+Run these in PowerShell or terminal to inspect the internal state across schemas:
+```bash
+# View Ingestion Outbox rows
+docker exec -it ci-triage-platform-postgres-1 psql -U triage_admin -d triage -c "SELECT id, event_type, status, retry_count, created_at FROM ingestion.outbox ORDER BY created_at DESC LIMIT 5;"
+
+# View Parser test failures
+docker exec -it ci-triage-platform-postgres-1 psql -U triage_admin -d triage -c "SELECT test_name, status, error_type, LEFT(error_message, 60) AS message FROM parser.test_results WHERE status = 'failed' LIMIT 5;"
+
+# View Classifier records (Rule vs. LLM classifications)
+docker exec -it ci-triage-platform-postgres-1 psql -U triage_admin -d triage -c "SELECT test_name, category, source, status, confidence, model, reason FROM classifier.classifications ORDER BY created_at DESC LIMIT 5;"
+
+# View LLM worker background jobs
+docker exec -it ci-triage-platform-postgres-1 psql -U triage_admin -d triage -c "SELECT id, fingerprint, status, attempts, result_category, result_reason FROM classifier.llm_jobs ORDER BY id DESC LIMIT 5;"
+
+# View Query read model runs
+docker exec -it ci-triage-platform-postgres-1 psql -U triage_admin -d triage -c "SELECT run_id, branch, commit_sha, total_tests, failed_tests, received_at FROM query.runs ORDER BY received_at DESC LIMIT 5;"
+```
