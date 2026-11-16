@@ -1,9 +1,8 @@
-name: CI with Automated Triage
+name: CI Triage Live Demo
 
 on:
   push:
-    branches: [ main, demo-* ]
-  pull_request:
+    branches: [ '**' ]
 
 jobs:
   test:
@@ -20,34 +19,20 @@ jobs:
       - name: Install Pytest
         run: pip install pytest
 
-      - name: Create Intentional Failure Test
-        run: |
-          mkdir -p tests
-          cat << 'EOF' > tests/test_payment.py
-          def test_successful_charge():
-              assert True
-
-          def test_insufficient_funds_handling():
-              # Simulating a breaking bug in CI
-              expected_code = 200
-              actual_code = 500
-              assert actual_code == expected_code, f"Payment service failed with code {actual_code}"
-          EOF
-
       - name: Run Tests & Generate JUnit XML
         id: run_tests
-        continue-on-error: true  # Allows the next step to run even when tests fail!
+        continue-on-error: true
         run: |
           pytest --junitxml=reports/junit.xml tests/
 
-      - name: Send Failure Report to CI-Triage-Platform
-        if: always() && steps.run_tests.outcome == 'failure'
+      - name: Send Report to CI-Triage-Platform
+        if: always()
         env:
-          TRIAGE_INGESTION_URL: ${{ secrets.TRIAGE_INGESTION_URL }} # e.g. https://a1b2-c3d4.ngrok-free.app
-          TRIAGE_API_KEY: ${{ secrets.TRIAGE_API_KEY }}             # dev-ingestion-key-change-me
+          TRIAGE_INGESTION_URL: ${{ secrets.TRIAGE_INGESTION_URL }}
+          TRIAGE_API_KEY: ${{ secrets.TRIAGE_API_KEY }}
         run: |
           if [ -f reports/junit.xml ]; then
-            echo "Sending JUnit report to CI Triage Platform..."
+            echo "Uploading report to $TRIAGE_INGESTION_URL/runs..."
             curl -v -X POST "$TRIAGE_INGESTION_URL/runs" \
               -H "X-API-Key: $TRIAGE_API_KEY" \
               -H "Content-Type: application/xml" \
