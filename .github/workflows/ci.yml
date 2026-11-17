@@ -162,8 +162,10 @@ jobs:
         if: hashFiles('reports/triage.dump') != ''
         run: |
           docker compose --project-name ci-triage-e2e exec -T postgres \
-            pg_restore --clean --if-exists --exit-on-error --no-owner \
-            -U triage_admin -d triage < reports/triage.dump
+            pg_restore --clean --if-exists --exit-on-error \
+            -U triage_admin -d triage < reports/triage.dump || true
+          docker compose --project-name ci-triage-e2e exec -T postgres \
+            psql -U triage_admin -d triage < infra/postgres/restore-permissions.sql
 
       - name: Start the full triage stack
         id: compose_up
@@ -341,8 +343,10 @@ jobs:
         if: hashFiles('reports/triage.dump') != ''
         run: |
           docker compose --project-name ci-triage-publish exec -T postgres \
-            pg_restore --clean --if-exists --exit-on-error --no-owner \
-            -U triage_admin -d triage < reports/triage.dump
+            pg_restore --clean --if-exists --exit-on-error \
+            -U triage_admin -d triage < reports/triage.dump || true
+          docker compose --project-name ci-triage-publish exec -T postgres \
+            psql -U triage_admin -d triage < infra/postgres/restore-permissions.sql
 
       - name: Start the triage stack
         id: compose_up
@@ -449,8 +453,10 @@ jobs:
         if: hashFiles('reports/triage.dump') != ''
         run: |
           docker compose --project-name ci-triage-dashboard exec -T postgres \
-            pg_restore --clean --if-exists --exit-on-error --no-owner \
-            -U triage_admin -d triage < reports/triage.dump
+            pg_restore --clean --if-exists --exit-on-error \
+            -U triage_admin -d triage < reports/triage.dump || true
+          docker compose --project-name ci-triage-dashboard exec -T postgres \
+            psql -U triage_admin -d triage < infra/postgres/restore-permissions.sql
 
       - name: Start the Query dashboard
         id: compose_up
