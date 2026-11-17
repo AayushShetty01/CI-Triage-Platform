@@ -1,9 +1,10 @@
-def test_unidentified_kernel_panic():
-    """Unhandled fatal runtime crash that rules cannot categorize."""
-    class HardwareMemoryFault(Exception):
+def test_quantum_circuit_decoherence():
+    """Unhandled quantum hardware fault that avoids all assertion/timeout/infra rule keywords."""
+    class QuantumPhaseFlipError(Exception):
         pass
 
-    raise HardwareMemoryFault(
-        "FATAL: Bus error (core dumped). Physical memory bus timeout at bank 3. "
-        "ECC uncorrectable multibit fault detected during JIT page swap."
+    raise QuantumPhaseFlipError(
+        "QPU qubit register state collapsed during unitary gate rotation. "
+        "Fidelity dropped below threshold on superconducting transmon lattice. "
+        "Uncalibrated microwave pulse envelope distorted phase coherence."
     )
