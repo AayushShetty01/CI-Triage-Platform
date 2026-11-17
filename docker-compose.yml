@@ -17,8 +17,9 @@ services:
       - ./infra/postgres/init-parser.sh:/docker-entrypoint-initdb.d/20-parser.sh:ro
       - ./infra/postgres/init-classifier.sh:/docker-entrypoint-initdb.d/30-classifier.sh:ro
       - ./infra/postgres/init-query.sh:/docker-entrypoint-initdb.d/40-query.sh:ro
+      - ./infra/postgres/restore-permissions.sql:/docker-entrypoint-initdb.d/99-permissions.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U triage_admin -d triage"]
+      test: [ "CMD-SHELL", "pg_isready -U triage_admin -d triage" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,7 +33,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -92,7 +93,7 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: [ "CMD", "ollama", "list" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -102,7 +103,7 @@ services:
     image: ollama/ollama:0.12.6
     environment:
       OLLAMA_HOST: http://ollama:11434
-    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:1.5b}"]
+    entrypoint: [ "ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:1.5b}" ]
     depends_on:
       ollama:
         condition: service_healthy
@@ -144,7 +145,7 @@ services:
   classifier-llm-worker:
     build:
       context: ./services/classifier
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004", "--no-access-log"]
+    command: [ "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004", "--no-access-log" ]
     environment:
       <<: *classifier-env
       ENABLE_CONSUMER: "false"
@@ -159,7 +160,7 @@ services:
       ollama:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=2)"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health', timeout=2)" ]
       interval: 5s
       timeout: 3s
       retries: 12
@@ -181,7 +182,7 @@ services:
       parser:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/health', timeout=2)" ]
       interval: 5s
       timeout: 3s
       retries: 12

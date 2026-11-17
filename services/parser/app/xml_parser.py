@@ -39,13 +39,21 @@ class ParseSummary:
 
 
 def _extract_error_details(elem: Element, default_type: str) -> tuple[str, str | None, str | None]:
-    error_type = elem.get("type") or default_type
+    error_type = elem.get("type")
     message = elem.get("message")
     stack_trace = elem.text.strip() if elem.text else None
 
     if not message and stack_trace:
         first_line = stack_trace.splitlines()[0].strip()
         message = first_line[:500] if first_line else None
+
+    if not error_type and message and ":" in message:
+        possible_type = message.split(":", 1)[0].strip().rsplit(".", 1)[-1]
+        if possible_type and " " not in possible_type:
+            error_type = possible_type
+
+    if not error_type:
+        error_type = default_type
 
     return error_type, message, stack_trace
 
