@@ -124,6 +124,9 @@ function renderRuns(runs) {
     branch.append(element("span", "branch-pill", run.branch || "—"));
     branch.append(element("small", "mono muted", (run.commit_sha || "").slice(0, 8)));
     const counts = run.test_counts;
+    if (counts.failed > 0) {
+      row.classList.add("has-failures");
+    }
     row.append(runCell, serviceCell, branch, element("td", "", counts.total),
       element("td", "", counts.passed), element("td", "", counts.failed),
       element("td", "", counts.skipped));

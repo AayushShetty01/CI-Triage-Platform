@@ -193,6 +193,13 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 3px 
   .panel { padding: 18px; }
   footer { flex-direction: column; gap: 2px; }
 }
+tr.has-failures {
+  background: rgba(236, 153, 172, 0.08);
+  border-left: 3px solid #ec99ac;
+}
+tr.has-failures:hover {
+  background: rgba(236, 153, 172, 0.15) !important;
+}
 @media (max-width: 410px) {
   .breadcrumb { font-size: 10px; }
   .top-actions { gap: 10px; }
